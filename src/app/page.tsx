@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -53,6 +54,43 @@ export default function DataRefineryPage() {
         addLog(`Tamaño de chunk actualizado a: ${newSize}`, "info");
     }
   };
+
+  const handleSpiderFileChange = (newFile: SpiderFile | null) => {
+    const oldFile = spiderFile;
+    setSpiderFile(newFile);
+
+    let changed = false;
+    if (newFile === null && oldFile !== null) { // File removed
+      changed = true;
+    } else if (newFile && (!oldFile || newFile.name !== oldFile.name || newFile.size !== oldFile.size || newFile.lastModified !== oldFile.lastModified)) {
+      // New file uploaded or different file selected
+      changed = true;
+    }
+
+    if (changed && consolidatedData !== null) {
+      setConsolidatedData(null);
+      addLog("Archivo Spider modificado/eliminado. Datos consolidados y chunks reiniciados.", "info");
+    }
+  };
+
+  const handleGosomFileChange = (newFile: GosomFile | null) => {
+    const oldFile = gosomFile;
+    setGosomFile(newFile);
+    
+    let changed = false;
+    if (newFile === null && oldFile !== null) { // File removed
+      changed = true;
+    } else if (newFile && (!oldFile || newFile.name !== oldFile.name || newFile.size !== oldFile.size || newFile.lastModified !== oldFile.lastModified)) {
+      // New file uploaded or different file selected
+      changed = true;
+    }
+
+    if (changed && consolidatedData !== null) {
+      setConsolidatedData(null);
+      addLog("Archivo Gosom modificado/eliminado. Datos consolidados y chunks reiniciados.", "info");
+    }
+  };
+
 
   return (
     <SidebarProvider defaultOpen>
@@ -118,8 +156,8 @@ export default function DataRefineryPage() {
 
             <TabsContent value="upload">
               <UploadTabContent
-                onSpiderFileChange={setSpiderFile}
-                onGosomFileChange={setGosomFile}
+                onSpiderFileChange={handleSpiderFileChange}
+                onGosomFileChange={handleGosomFileChange}
                 spiderFile={spiderFile}
                 gosomFile={gosomFile}
                 addLog={addLog}

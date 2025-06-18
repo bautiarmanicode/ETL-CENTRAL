@@ -133,9 +133,13 @@ const ConsolidateTabContent: React.FC<ConsolidateTabContentProps> = ({
           </CardContent>
         </Card>
       ) : (
-        <Button onClick={handleConsolidate} size="lg" disabled={isLoading || consolidatedData !== null}>
+        <Button 
+          onClick={handleConsolidate} 
+          size="lg" 
+          disabled={isLoading || consolidatedData !== null}
+        >
           <DatabaseZap className="mr-2 h-5 w-5" />
-          {isLoading ? "Procesando..." : (consolidatedData ? "Datos Consolidados" : "Consolidar y Deduplicar Datos")}
+          {isLoading ? "Procesando..." : (consolidatedData !== null ? "Datos Ya Consolidados" : "Consolidar y Deduplicar Datos")}
         </Button>
       )}
 
@@ -170,4 +174,3 @@ const ConsolidateTabContent: React.FC<ConsolidateTabContentProps> = ({
 };
 
 export default ConsolidateTabContent;
-
