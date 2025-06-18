@@ -1,3 +1,4 @@
+
 "use client";
 
 import type React from "react";
@@ -9,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Orbit, AlertTriangle, CheckSquare, Download } from "lucide-react";
 import type { ConsolidatedData, DataChunk } from "./types";
 import { useToast } from "@/hooks/use-toast";
+import { generateChunks, convertToCSV } from "@/lib/etl-logic";
 
 interface ChunkingTabContentProps {
   consolidatedData: ConsolidatedData | null;
@@ -24,10 +26,10 @@ const ChunkingTabContent: React.FC<ChunkingTabContentProps> = ({
   addLog,
 }) => {
   const [generatedChunks, setGeneratedChunks] = useState<DataChunk[] | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Reset chunks if consolidated data changes
     setGeneratedChunks(null);
   }, [consolidatedData]);
 
@@ -51,39 +53,71 @@ const ChunkingTabContent: React.FC<ChunkingTabContentProps> = ({
       return;
     }
 
+    setIsLoading(true);
     addLog(`Iniciando generación de chunks con tamaño ${chunkSize}...`, "info");
     
-    // Mock chunking logic
-    const chunks: DataChunk[] = [];
-    for (let i = 0; i < consolidatedData.length; i += chunkSize) {
-      chunks.push(consolidatedData.slice(i, i + chunkSize));
-    }
-    
-    // Simulate processing delay
-    setTimeout(() => {
+    try {
+      const chunks = generateChunks(consolidatedData, chunkSize);
       setGeneratedChunks(chunks);
-      addLog(`${chunks.length} chunks generados (simulado).`, "success");
+      addLog(`${chunks.length} chunks generados.`, "success");
       toast({
         title: "Chunks Generados",
-        description: `Se han generado ${chunks.length} chunks de datos (simulado).`,
+        description: `Se han generado ${chunks.length} chunks de datos.`,
       });
-    }, 1000);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Un error desconocido ocurrió durante la generación de chunks.";
+      addLog(`Error al generar chunks: ${errorMessage}`, "error");
+      toast({
+        title: "Error al Generar Chunks",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      setGeneratedChunks(null);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleDownloadChunk = (chunkIndex: number, chunkData: DataChunk) => {
-    // Mock download functionality
-    const csvContent = "data:text/csv;charset=utf-8," 
-      + "id,nombre,website,email,source,telefono,direccion\n" // Header row (adjust as per your actual data)
-      + chunkData.map(row => Object.values(row).join(",")).join("\n");
-    
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `chunk_${chunkIndex + 1}.csv`);
-    document.body.appendChild(link); 
-    link.click();
-    document.body.removeChild(link);
-    addLog(`Chunk ${chunkIndex + 1} descargado (simulado).`, "info");
+    if (!chunkData || chunkData.length === 0) {
+      addLog(`Error: El chunk ${chunkIndex + 1} está vacío y no se puede descargar.`, "error");
+      toast({
+        title: "Chunk Vacío",
+        description: `El chunk ${chunkIndex + 1} no contiene datos.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const csvString = convertToCSV(chunkData);
+      if (!csvString) {
+        addLog(`Error: No se pudo generar el contenido CSV para el chunk ${chunkIndex + 1}.`, "error");
+        toast({
+          title: "Error de Descarga",
+          description: "El chunk está vacío o no se pudo procesar.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      const encodedUri = "data:text/csv;charset=utf-8," + encodeURI(csvString);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `chunk_${chunkIndex + 1}.csv`);
+      document.body.appendChild(link); 
+      link.click();
+      document.body.removeChild(link);
+      addLog(`Chunk ${chunkIndex + 1} descargado.`, "info");
+    } catch (error) {
+       const errorMessage = error instanceof Error ? error.message : "Un error desconocido ocurrió durante la descarga del chunk.";
+       addLog(`Error al descargar chunk ${chunkIndex + 1}: ${errorMessage}`, "error");
+       toast({
+        title: "Error de Descarga",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
   };
 
 
@@ -123,15 +157,15 @@ const ChunkingTabContent: React.FC<ChunkingTabContentProps> = ({
                 type="number"
                 value={chunkSize}
                 onChange={(e) => onChunkSizeChange(parseInt(e.target.value, 10))}
-                min={10}
+                min={10} 
                 max={500}
                 className="mt-1"
               />
               <p className="text-xs text-muted-foreground mt-1">Número de registros por chunk (ej: 50).</p>
             </div>
-            <Button onClick={handleGenerateChunks} size="lg" disabled={generatedChunks !== null}>
+            <Button onClick={handleGenerateChunks} size="lg" disabled={isLoading || generatedChunks !== null}>
               <Orbit className="mr-2 h-5 w-5" />
-              {generatedChunks ? "Chunks Generados" : "Generar Chunks"}
+              {isLoading ? "Generando..." : (generatedChunks !== null ? "Chunks Generados" : "Generar Chunks")}
             </Button>
           </CardContent>
         </Card>
@@ -142,7 +176,7 @@ const ChunkingTabContent: React.FC<ChunkingTabContentProps> = ({
           <CardHeader>
             <CardTitle className="font-headline flex items-center text-green-700">
               <CheckSquare className="mr-2 h-6 w-6" />
-              Chunks Generados (Simulado)
+              Chunks Generados
             </CardTitle>
              <CardDescription className="text-green-600">
               Se han generado {generatedChunks.length} chunks. Puede descargarlos individualmente.
