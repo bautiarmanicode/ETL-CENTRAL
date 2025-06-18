@@ -1,0 +1,19 @@
+{
+  "chunk_size_default": 50,
+  "chunk_size_min": 10,
+  "chunk_size_max": 500,
+  "upload_validation": {
+    "spider_required_fields": ["nombre", "dirección", "teléfono"],
+    "gosom_required_fields": ["nombre", "website", "email"]
+  },
+  "deduplication_keys": ["link", "title"],
+  "conflict_resolution_priority_source": "Gosom",
+  "postgresql_config_placeholder": {
+    "host": "your_db_host",
+    "port": 5432,
+    "database": "your_db_name",
+    "user": "your_db_user",
+    "password": "your_db_password_placeholder"
+  },
+  "log_file_path_conceptual": "data/logs/etl_central.log (conceptual, logs son en UI)"
+}
