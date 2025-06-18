@@ -1,3 +1,4 @@
+
 "use client";
 
 import type React from "react";
@@ -8,6 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { FileUp, CheckCircle, AlertCircle } from "lucide-react";
 import type { SpiderFile, GosomFile } from "./types";
+import { useToast } from "@/hooks/use-toast";
+import { parse, type ParseResult } from 'papaparse';
+import etlParams from "../../../../config/etl_params.json";
 
 interface UploadTabContentProps {
   onSpiderFileChange: (file: SpiderFile | null) => void;
@@ -24,61 +28,134 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
   spiderFile,
   gosomFile,
 }) => {
-  const [spiderFileName, setSpiderFileName] = useState<string | null>(null);
-  const [gosomFileName, setGosomFileName] = useState<string | null>(null);
   const [spiderError, setSpiderError] = useState<string | null>(null);
   const [gosomError, setGosomError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const handleFileChange = (
     event: React.ChangeEvent<HTMLInputElement>,
     type: "spider" | "gosom"
   ) => {
     const file = event.target.files?.[0] || null;
-    if (file) {
-      if (file.type !== "text/csv") {
-        const errorMsg = "Archivo no válido. Por favor, suba un archivo CSV.";
-        if (type === "spider") {
-          setSpiderError(errorMsg);
-          onSpiderFileChange(null);
-          setSpiderFileName(null);
-        } else {
-          setGosomError(errorMsg);
-          onGosomFileChange(null);
-          setGosomFileName(null);
-        }
-        addLog(errorMsg, "error");
-        return;
-      }
+    const onFileChange = type === "spider" ? onSpiderFileChange : onGosomFileChange;
+    const setError = type === "spider" ? setSpiderError : setGosomError;
 
-      // Basic validation mock - in a real app, parse and check headers here
-      // Spider: Requiere `nombre`, `dirección`, `teléfono`.
-      // Gosom: Requiere `nombre`, `website`, `email`.
-      const successMsg = `CSV de ${type === "spider" ? "Spider" : "Gosom"} (${file.name}) cargado y validado (simulado).`;
-      if (type === "spider") {
-        setSpiderError(null);
-        onSpiderFileChange(file as SpiderFile);
-        setSpiderFileName(file.name);
-      } else {
-        setGosomError(null);
-        onGosomFileChange(file as GosomFile);
-        setGosomFileName(file.name);
+    // Reset input if no file is selected or selection is cancelled
+    if (!file) {
+      onFileChange(null);
+      setError(null);
+      // Clear the file input visually
+      if (event.target) {
+        event.target.value = "";
       }
-      addLog(successMsg, "success");
-    } else {
-      if (type === "spider") {
-        onSpiderFileChange(null);
-        setSpiderFileName(null);
-      } else {
-        onGosomFileChange(null);
-        setGosomFileName(null);
-      }
+      return;
     }
+    
+    setError(null); // Reset error state for current uploader
+
+    if (file.type !== "text/csv") {
+      const errorMsg = "Archivo no válido. Por favor, suba un archivo CSV.";
+      setError(errorMsg);
+      onFileChange(null);
+      addLog(errorMsg, "error");
+      toast({
+        title: "Error de Archivo",
+        description: errorMsg,
+        variant: "destructive",
+      });
+      if (event.target) event.target.value = ""; // Clear input on error
+      return;
+    }
+
+    parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results: ParseResult<Record<string, string>>) => {
+        const parsedData = results.data;
+        const headers = results.meta.fields as string[] | undefined;
+
+        if (!headers || headers.length === 0 || (headers.length === 1 && headers[0] === "")) {
+          const errorMsg = "El archivo CSV está vacío, no tiene encabezados válidos o su formato es incorrecto.";
+          setError(errorMsg);
+          onFileChange(null);
+          addLog(errorMsg, "error");
+          toast({
+            title: "Error de CSV",
+            description: errorMsg,
+            variant: "destructive",
+          });
+          if (event.target) event.target.value = ""; 
+          return;
+        }
+        
+        if (parsedData.length === 0) {
+           const errorMsg = "El archivo CSV no contiene datos (solo encabezados).";
+           setError(errorMsg);
+           onFileChange(null);
+           addLog(errorMsg, "error");
+           toast({
+            title: "Archivo Vacío",
+            description: errorMsg,
+            variant: "destructive",
+           });
+           if (event.target) event.target.value = "";
+           return;
+        }
+
+
+        const requiredFields = type === "spider"
+          ? etlParams.upload_validation.spider_required_fields
+          : etlParams.upload_validation.gosom_required_fields;
+
+        const missingFields = requiredFields.filter(field => !headers.includes(field));
+
+        if (missingFields.length > 0) {
+          const errorMsg = `Faltan las siguientes columnas requeridas en ${file.name}: ${missingFields.join(", ")}.`;
+          setError(errorMsg);
+          onFileChange(null);
+          addLog(errorMsg, "error");
+          toast({
+            title: "Error de Validación de CSV",
+            description: errorMsg,
+            variant: "destructive",
+          });
+          if (event.target) event.target.value = ""; 
+        } else {
+          const fileWithData = file as (SpiderFile | GosomFile);
+          fileWithData.parsedData = parsedData;
+
+          if (type === "spider") {
+            onSpiderFileChange(fileWithData as SpiderFile);
+          } else {
+            onGosomFileChange(fileWithData as GosomFile);
+          }
+          const successMsg = `CSV de ${type === "spider" ? "Spider" : "Gosom"} (${file.name}) cargado y validado. ${parsedData.length} registros encontrados.`;
+          addLog(successMsg, "success");
+          toast({
+            title: "Archivo Procesado",
+            description: `Se cargaron y validaron ${parsedData.length} registros de ${file.name}.`,
+          });
+        }
+      },
+      error: (error: Error) => {
+        const errorMsg = `Error al parsear el archivo CSV ${file.name}: ${error.message}`;
+        setError(errorMsg);
+        onFileChange(null);
+        addLog(errorMsg, "error");
+        toast({
+          title: "Error de Parseo",
+          description: errorMsg,
+          variant: "destructive",
+        });
+        if (event.target) event.target.value = ""; 
+      }
+    });
   };
 
   return (
     <div className="space-y-6 p-1">
       <p className="text-muted-foreground">
-        Suba los archivos CSV crudos desde las fuentes Spider y GOSOM. Los archivos serán validados (simulado) al cargarse.
+        Suba los archivos CSV crudos desde las fuentes Spider y GOSOM. Los archivos serán validados al cargarse.
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
@@ -88,27 +165,28 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
               CSV de Spider
             </CardTitle>
             <CardDescription>
-              Contiene datos de leads de la fuente Spider. Campos esperados: nombre, dirección, teléfono.
+              Contiene datos de leads de la fuente Spider. Campos esperados: {etlParams.upload_validation.spider_required_fields.join(", ")}.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <Label htmlFor="spider-file">Seleccionar archivo CSV</Label>
             <Input
               id="spider-file"
+              key={spiderFile ? 'spider-loaded' : 'spider-empty'} // Add key to allow re-triggering onChange for the same file after an error
               type="file"
               accept=".csv"
               onChange={(e) => handleFileChange(e, "spider")}
               className="cursor-pointer"
               aria-describedby="spider-file-status"
             />
-            {spiderFileName && !spiderError && (
-              <p id="spider-file-status" className="text-sm text-green-600 flex items-center">
-                <CheckCircle className="mr-1 h-4 w-4" /> Cargado: {spiderFileName}
-              </p>
-            )}
             {spiderError && (
               <p id="spider-file-status" className="text-sm text-destructive flex items-center">
                 <AlertCircle className="mr-1 h-4 w-4" /> {spiderError}
+              </p>
+            )}
+            {!spiderError && spiderFile && spiderFile.parsedData && (
+              <p id="spider-file-status" className="text-sm text-green-600 flex items-center">
+                <CheckCircle className="mr-1 h-4 w-4" /> Cargado: {spiderFile.name} ({spiderFile.parsedData.length} registros)
               </p>
             )}
           </CardContent>
@@ -121,35 +199,36 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
               CSV de Gosom
             </CardTitle>
             <CardDescription>
-              Contiene datos de leads de la fuente GOSOM. Campos esperados: nombre, website, email.
+              Contiene datos de leads de la fuente GOSOM. Campos esperados: {etlParams.upload_validation.gosom_required_fields.join(", ")}.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <Label htmlFor="gosom-file">Seleccionar archivo CSV</Label>
             <Input
               id="gosom-file"
+              key={gosomFile ? 'gosom-loaded' : 'gosom-empty'} // Add key to allow re-triggering onChange for the same file after an error
               type="file"
               accept=".csv"
               onChange={(e) => handleFileChange(e, "gosom")}
               className="cursor-pointer"
               aria-describedby="gosom-file-status"
             />
-            {gosomFileName && !gosomError && (
-              <p id="gosom-file-status" className="text-sm text-green-600 flex items-center">
-                <CheckCircle className="mr-1 h-4 w-4" /> Cargado: {gosomFileName}
-              </p>
-            )}
             {gosomError && (
               <p id="gosom-file-status" className="text-sm text-destructive flex items-center">
                 <AlertCircle className="mr-1 h-4 w-4" /> {gosomError}
               </p>
             )}
+            {!gosomError && gosomFile && gosomFile.parsedData &&(
+              <p id="gosom-file-status" className="text-sm text-green-600 flex items-center">
+                <CheckCircle className="mr-1 h-4 w-4" /> Cargado: {gosomFile.name} ({gosomFile.parsedData.length} registros)
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
-      {(spiderFile && gosomFile) && (
+      {(spiderFile && spiderFile.parsedData && gosomFile && gosomFile.parsedData) && (
         <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-md text-green-700">
-          <p className="font-medium flex items-center"><CheckCircle className="mr-2 h-5 w-5" /> ¡Archivos cargados y listos para consolidar!</p>
+          <p className="font-medium flex items-center"><CheckCircle className="mr-2 h-5 w-5" /> ¡Archivos cargados y validados!</p>
           <p>Diríjase a la pestaña "Consolidar y Deduplicar" para continuar.</p>
         </div>
       )}
@@ -158,3 +237,4 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
 };
 
 export default UploadTabContent;
+
