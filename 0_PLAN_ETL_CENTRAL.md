@@ -2,55 +2,112 @@
 
 ---
 
-## 🎯 Objetivo General  
-Centralizar el procesamiento de datos crudos de Spider y GOSOM, consolidándolos en un "CSV Madre" (conceptual, en memoria/descargable) y generando chunks si es necesario, utilizando una aplicación Next.js/React.
+## 🎯 Objetivo General
+Centralizar el procesamiento de datos crudos de Spider y GOSOM, consolidándolos en un "CSV Madre" (conceptual, en memoria/descargable) y generando chunks si es necesario, utilizando una aplicación Next.js/React. Se contempla la futura carga a PostgreSQL.
 
 ---
 
-## 🧰 Módulos y Tareas a Desarrollar (en el contexto Next.js/React)
+## 🧰 Módulos y Tareas a Desarrollar (Adaptado a Next.js/React)
 
-### 1. **Lógica Central (TypeScript en `src/app/(components)/data-refinery/` y `src/app/page.tsx`)**
-- [x] 🔗 `consolidar_nuevos` (Simulado): Lógica actual en `ConsolidateTabContent.tsx`.
-  - Manejar campos diferentes entre Spider y Gosom (simulado, Gosom tiene prioridad).
-- [x] 🪓 `generar_chunks` (Simulado): Lógica actual en `ChunkingTabContent.tsx`.
-- [x] 📜 Registro de logs: Implementado mediante `addLog` prop y mostrado en `LogsTabContent.tsx`.
+### 1. **Lógica Central (TypeScript en `src/app/(components)/data-refinery/`, `src/lib/etl-logic.ts` o Genkit Flows)**
+- [ ] **Consolidación de Datos (`consolidateData`)**
+  - [ ] Parsear CSVs de Spider y Gosom (usar una librería como PapaParse).
+  - [ ] Lógica de merge de datos.
+  - [ ] Manejar campos diferentes entre Spider y Gosom (ej: `url` vs `website`), priorizando Gosom en conflictos según `etl_params.json`.
+  - [ ] Implementar deduplicación real (basado en `deduplication_keys` de `etl_params.json`).
+  - _Actual: Simulado en `ConsolidateTabContent.tsx`._
+- [ ] **Generación de Chunks (`generateChunks`)**
+  - [ ] Dividir datos consolidados según `chunkSize`.
+  - [ ] Preparar cada chunk para descarga como CSV.
+  - _Actual: Simulado en `ChunkingTabContent.tsx`._
+- [ ] **Registro de Logs**
+  - [x] Implementado mediante `addLog` prop en `page.tsx` y mostrado en `LogsTabContent.tsx`.
+  - _Futuro: Si se usa backend/Genkit, considerar logging estructurado allí._
 
-### 2. **Interfaz de Procesamiento (`src/app/page.tsx` y componentes asociados)**
-- [x] 🖥️ Sidebar con:  
-  - [x] `Input` (ShadCN) para tamaño de chunk (`chunkSize` estado en `page.tsx`).
-- [x] 📊 Main Area con pestañas (`Tabs` de ShadCN):  
-  - [x] **Cargar CSVs**: `UploadTabContent.tsx` con `Input type="file"` separados para Spider y Gosom.
-  - [x] **Consolidar**: `ConsolidateTabContent.tsx` - Carga simulada, merge simulado, muestra datos consolidados (simulados).
-  - [x] **Chunkear**: `ChunkingTabContent.tsx` - Usa datos consolidados (simulados), genera chunks (simulados) para descarga.
-  - [x] **Logs**: `LogsTabContent.tsx` muestra logs del estado de la aplicación.
+### 2. **Interfaz de Procesamiento (`src/app/page.tsx` y componentes asociados en `src/app/(components)/data-refinery/`)**
+- [x] **Sidebar:**
+  - [x] `Input` (ShadCN) para `chunkSize` (controlado en `page.tsx`, con min/max de `etl_params.json`).
+- [x] **Área Principal con Pestañas (ShadCN `Tabs`):**
+  - [x] **Cargar CSVs (`UploadTabContent.tsx`):**
+    - [x] Inputs de carga de archivos separados para Spider y Gosom.
+    - [ ] Validación real de campos requeridos (definidos en `upload_validation` de `etl_params.json`) al cargar. _Actual: Validación de tipo .csv simulada._
+  - [x] **Consolidar (`ConsolidateTabContent.tsx`):**
+    - [x] Botón para iniciar la consolidación.
+    - [ ] Mostrar datos consolidados reales (post-procesamiento). _Actual: Muestra datos simulados._
+    - [ ] Permitir descarga del CSV Madre consolidado.
+  - [x] **Chunkear (`ChunkingTabContent.tsx`):**
+    - [x] Botón para generar chunks.
+    - [ ] Usar datos consolidados reales.
+    - [x] Mostrar lista de chunks reales generados para descarga. _Actual: Simulado._
+  - [x] **Logs (`LogsTabContent.tsx`):**
+    - [x] Muestra logs de la UI y operaciones simuladas.
 
-### 3. **Configuración y Datos (Client-Side)**
-- [ ] 🗂️ `config/etl_params.json` (chunk size por defecto, placeholders para futura config de PostgreSQL).
-- [ ] 📂 `/data/raw/spider/` y `/data/raw/gosom/` (Conceptuales: archivos son cargados por el usuario vía navegador).
-- [ ] 📂 `/data/consolidated/` (Conceptual: "CSV Madre" es un estado en la aplicación, puede ser descargado).
-- [ ] 📂 `/data/chunks/` (Conceptual: archivos generados para descarga).
+### 3. **Configuración y Datos (Client-Side / Conceptual)**
+- [x] `config/etl_params.json`:
+    - [x] `chunk_size_default`, `chunk_size_min`, `chunk_size_max`.
+    - [x] `upload_validation` (campos requeridos para Spider/Gosom).
+    - [x] `deduplication_keys`.
+    - [x] `conflict_resolution_priority_source`.
+    - [x] `postgresql_config_placeholder`.
+    - [x] `log_file_path_conceptual` (aclarando que los logs son en UI para la app cliente).
+- **Archivos de Datos (Manejo en el Navegador):**
+  - **CSVs Crudos (Spider/Gosom):** Cargados por el usuario vía `<input type="file">`, procesados en memoria. No se guardan en `data/raw/` en el cliente.
+  - **CSV Madre (Consolidado):** Estado en la aplicación React (`consolidatedData` en `page.tsx`), descargable. No se guarda en `data/consolidated/` en el cliente.
+  - **Chunks Generados:** Objetos en memoria, descargables individualmente. No se guardan en `data/chunks/` en el cliente.
+  - **Logs de Ejecución:** Array en el estado de la app (`logs` en `page.tsx`), mostrados en la UI. No se escribe a `data/logs/etl_central.log` en el cliente.
 
 ### 4. **Pruebas & CI/CD (Potencial Futuro)**
-- [ ] ✅ Pruebas unitarias/integración para lógica de transformación (usando Jest/React Testing Library).
-- [ ] ⚙️ GitHub Actions: pruebas automatizadas.
+- [ ] Pruebas unitarias/integración para lógica de transformación (usando Jest/React Testing Library para funciones en `src/lib/etl-logic.ts` u equivalentes).
+- [ ] GitHub Actions: configurar para ejecutar pruebas automatizadas.
 
 ---
 
-## 📚 Historial de Mejoras (Checklist Estilo GOSOM)  
-- [x] **Fase 1: MVP (Actual)**  
-  - Consolidación simulada, deduplicación simulada, chunking simulado. Interfaz funcional con Next.js/React.
-- [ ] **Fase 2: Lógica de Procesamiento Real / Backend (Genkit)**  
-  - Implementar lógica real de parseo CSV, consolidación, deduplicación y chunking (posiblemente con Genkit flows si es intensivo).
-  - Carga a base de datos PostgreSQL (requiere Genkit flow o backend).
-- [ ] **Fase 3: Automatización**  
-  - Ejecución automática (requeriría un backend/servicios cloud).
+## 📚 Historial de Mejoras (Checklist Estilo GOSOM - Adaptado)
+- **Fase 1: MVP (Actual - Funcionalidad Simulada)**
+  - [x] Interfaz básica con carga de archivos (validación de tipo de archivo).
+  - [x] Consolidación simulada, deduplicación simulada, chunking simulado.
+  - [x] Interfaz completamente funcional con Next.js/React y ShadCN UI.
+  - [x] Configuración y uso básico de `etl_params.json` para `chunkSize`.
+  - [x] Sistema de logging en la UI.
+- **Fase 2: Implementación de Lógica Real de ETL (Client-Side)**
+  - [ ] Implementar parseo real de CSV (ej: PapaParse) en `UploadTabContent.tsx` o `src/lib/etl-logic.ts`.
+  - [ ] Implementar validación de encabezados CSV según `etl_params.json` en `UploadTabContent.tsx`.
+  - [ ] Implementar consolidación real con manejo de conflictos y deduplicación en `src/lib/etl-logic.ts` e integrarlo en `ConsolidateTabContent.tsx`.
+  - [ ] Implementar chunking real en `src/lib/etl-logic.ts` e integrarlo en `ChunkingTabContent.tsx`.
+  - [ ] Mejorar manejo de errores y feedback al usuario en todas las pestañas.
+  - [ ] Asegurar que la descarga de CSVs (consolidado y chunks) funcione con datos reales.
+- **Fase 3: Integración con Backend (Potencial - Genkit/PostgreSQL)**
+  - [ ] Identificar operaciones que se beneficiarían de un backend (ej: procesamiento de archivos muy grandes, persistencia).
+  - [ ] Desarrollar Genkit flows para dichas operaciones si es necesario.
+  - [ ] Implementar carga a base de datos PostgreSQL (requiere Genkit flow o API de backend, usando `postgresql_config_placeholder` de `etl_params.json`).
+- **Fase 4: Automatización (Requeriría Backend/Servicios Cloud)**
+  - [ ] Considerar ejecución automática/programada si se migra a una arquitectura con backend.
 
 ---
 
-## 🔮 Siguientes Pasos  
-1. Validar este `0_PLAN_ETL_CENTRAL.md`.  
-2. Implementar `config/etl_params.json`.
-3. Refinar la lógica simulada en los componentes React hacia una implementación más robusta, potencialmente utilizando Genkit para operaciones complejas o que requieran acceso a backend.
-4. Considerar la integración con un backend real para la persistencia de datos (PostgreSQL) y operaciones más allá del navegador.
+## 🔮 Siguientes Pasos Inmediatos (Basado en el estado actual y Fase 2)
+1. **Validar este `0_PLAN_ETL_CENTRAL.md` actualizado.** (Iteración actual).
+2. **Implementar parseo y validación de CSVs en `UploadTabContent.tsx`:**
+    - Utilizar una librería como PapaParse para leer el contenido de los archivos CSV.
+    - Leer `upload_validation` de `config/etl_params.json`.
+    - Validar que los encabezados requeridos existan en los respectivos archivos.
+    - Mostrar errores específicos al usuario en la UI (`toast` y/o mensajes en la Card) si la validación falla.
+    - Si la validación es exitosa, almacenar los datos parseados (array de objetos) en el estado (`spiderFileData`, `gosomFileData`) en lugar de solo el objeto `File`.
+3. **Implementar la lógica real de consolidación y deduplicación:**
+    - Crear/Usar un archivo para la lógica, ej: `src/lib/etl-logic.ts`.
+    - Crear funciones como:
+        - `function consolidateAndDeduplicate(spiderData: Record<string, string>[], gosomData: Record<string, string>[], deduplicationKeys: string[], prioritySource: string, gosomFields: string[], spiderFields: string[]): ConsolidatedData`
+    - Esta función debe:
+        - Mapear campos (ej. si Spider usa 'telefono' y Gosom 'teléfono', o 'direccion' vs 'address').
+        - Unir los dos conjuntos de datos.
+        - Aplicar la lógica de prioridad de `prioritySource` (Gosom) para campos en común si hay conflicto.
+        - Deduplicar basado en `deduplicationKeys`.
+    - Integrar esta función en `ConsolidateTabContent.tsx`, usando los datos parseados del paso anterior y los parámetros de `etl_params.json`.
+    - Actualizar la UI para mostrar los datos consolidados reales y permitir su descarga como CSV.
+4. **Implementar la lógica real de chunking:**
+    - En `src/lib/etl-logic.ts` (o similar), crear función: `function generateChunks(consolidatedData: ConsolidatedData, chunkSize: number): DataChunk[]`.
+    - Integrar en `ChunkingTabContent.tsx`, usando los datos consolidados reales.
+    - Asegurar que la descarga de cada chunk funcione correctamente.
+5. **Mejorar el feedback visual y manejo de estados (loading, success, error) en todas las pestañas durante estas operaciones.**
 
 ---
