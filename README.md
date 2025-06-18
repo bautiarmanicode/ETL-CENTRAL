@@ -22,6 +22,17 @@ La interfaz se divide en tres áreas principales:
 
 ---
 
+## 🏃‍♀️ Cómo Usar la Aplicación
+
+Para ejecutar la aplicación localmente, sigue estos pasos:
+
+1.  Asegúrate de tener [Node.js](https://nodejs.org/en/) instalado en tu máquina.
+2.  Abre la terminal o línea de comandos.
+3.  Navega hasta el directorio raíz de este proyecto donde se encuentra el archivo `package.json`.
+4.  Instala las dependencias del proyecto ejecutando uno de los siguientes comandos (dependiendo del gestor de paquetes que prefieras):
+
+
+
 ## 🛠️ Componentes y Funcionalidades Detalladas (Implementado con Next.js/React)
 
 ### 1. **Carga de CSVs Crudos**  

@@ -1,6 +1,6 @@
 
 "use client";
-
+import { useEffect, useState } from "react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,8 @@ import ChunkingTabContent from "./(components)/data-refinery/chunking-tab-conten
 import LogsTabContent from "./(components)/data-refinery/logs-tab-content";
 import type { SpiderFile, GosomFile, LogEntry, ConsolidatedData } from "./(components)/data-refinery/types";
 import { useToast } from "@/hooks/use-toast";
+import { consolidateAndDeduplicate } from "@/lib/etl-logic";
+import etlParams from "../../config/etl_params.json";
 
 export default function DataRefineryPage() {
   const [spiderFile, setSpiderFile] = useState<SpiderFile | null>(null);
@@ -90,6 +92,26 @@ export default function DataRefineryPage() {
       addLog("Archivo Gosom modificado/eliminado. Datos consolidados y chunks reiniciados.", "info");
     }
   };
+
+  useEffect(() => {
+    if (spiderFile?.parsedData && gosomFile?.parsedData) {
+      addLog("Iniciando consolidación y deduplicación...");
+      try {
+        const result = consolidateAndDeduplicate(
+          spiderFile.parsedData,
+          gosomFile.parsedData,
+          etlParams.deduplication_keys,
+          etlParams.conflict_resolution_priority_source
+        );
+        setConsolidatedData(result);
+        addLog(`Consolidación completada. ${result.length} registros consolidados.`, "success");
+      } catch (error: any) {
+        addLog(`Error durante la consolidación: ${error.message}`, "error");
+      }
+    } else {
+ setConsolidatedData(null); // Reset consolidated data if either file is missing or not parsed
+    }
+  }, [spiderFile, gosomFile]); // Effect depends on spiderFile and gosomFile
 
 
   return (

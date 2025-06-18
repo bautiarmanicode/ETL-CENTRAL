@@ -30,6 +30,8 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
 }) => {
   const [spiderError, setSpiderError] = useState<string | null>(null);
   const [gosomError, setGosomError] = useState<string | null>(null);
+  const [isSpiderLoading, setIsSpiderLoading] = useState(false);
+  const [isGosomLoading, setIsGosomLoading] = useState(false);
   const { toast } = useToast();
 
   const handleFileChange = (
@@ -39,6 +41,7 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
     const file = event.target.files?.[0] || null;
     const onFileChange = type === "spider" ? onSpiderFileChange : onGosomFileChange;
     const setError = type === "spider" ? setSpiderError : setGosomError;
+    const setIsLoading = type === "spider" ? setIsSpiderLoading : setIsGosomLoading;
 
     // Reset input if no file is selected or selection is cancelled
     if (!file) {
@@ -52,6 +55,7 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
     }
     
     setError(null); // Reset error state for current uploader
+    setIsLoading(true); // Set loading state
 
     if (file.type !== "text/csv") {
       const errorMsg = "Archivo no válido. Por favor, suba un archivo CSV.";
@@ -65,6 +69,7 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
       });
       if (event.target) event.target.value = ""; // Clear input on error
       return;
+
     }
 
     parse(file, {
@@ -72,6 +77,7 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
       skipEmptyLines: true,
       complete: (results: ParseResult<Record<string, string>>) => {
         const parsedData = results.data;
+        setIsLoading(false); // Reset loading state on completion
         const headers = results.meta.fields as string[] | undefined;
 
         if (!headers || headers.length === 0 || (headers.length === 1 && headers[0] === "")) {
@@ -138,6 +144,7 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
         }
       },
       error: (error: Error) => {
+        setIsLoading(false); // Reset loading state on error
         const errorMsg = `Error al parsear el archivo CSV ${file.name}: ${error.message}`;
         setError(errorMsg);
         onFileChange(null);
@@ -176,12 +183,18 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
               type="file"
               accept=".csv"
               onChange={(e) => handleFileChange(e, "spider")}
-              className="cursor-pointer"
+              className={`cursor-pointer ${isSpiderLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
               aria-describedby="spider-file-status"
+              disabled={isSpiderLoading}
             />
             {spiderError && (
               <p id="spider-file-status" className="text-sm text-destructive flex items-center">
                 <AlertCircle className="mr-1 h-4 w-4" /> {spiderError}
+              </p>
+            )}
+            {isSpiderLoading && (
+              <p id="spider-file-status" className="text-sm text-blue-600 flex items-center">
+                 Cargando y validando...
               </p>
             )}
             {!spiderError && spiderFile && spiderFile.parsedData && (
@@ -210,12 +223,17 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
               type="file"
               accept=".csv"
               onChange={(e) => handleFileChange(e, "gosom")}
-              className="cursor-pointer"
+              className={`cursor-pointer ${isGosomLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
               aria-describedby="gosom-file-status"
+              disabled={isGosomLoading}
             />
             {gosomError && (
               <p id="gosom-file-status" className="text-sm text-destructive flex items-center">
                 <AlertCircle className="mr-1 h-4 w-4" /> {gosomError}
+              </p>\n            )}
+            {isGosomLoading && (
+              <p id=\"gosom-file-status\" className=\"text-sm text-blue-600 flex items-center\">
+                 Cargando y validando...
               </p>
             )}
             {!gosomError && gosomFile && gosomFile.parsedData &&(
