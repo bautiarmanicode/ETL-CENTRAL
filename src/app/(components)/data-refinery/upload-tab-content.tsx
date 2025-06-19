@@ -5,7 +5,6 @@ import type React from "react";
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { FileUp, CheckCircle, AlertCircle } from "lucide-react";
 import type { SpiderFile, GosomFile } from "./types";
@@ -39,13 +38,13 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
     type: "spider" | "gosom"
   ) => {
     const file = event.target.files?.[0] || null;
-    const onFileChange = type === "spider" ? onSpiderFileChange : onGosomFileChange;
+    const onFileChangeCallback = type === "spider" ? onSpiderFileChange : onGosomFileChange;
     const setError = type === "spider" ? setSpiderError : setGosomError;
     const setIsLoading = type === "spider" ? setIsSpiderLoading : setIsGosomLoading;
 
     // Reset input if no file is selected or selection is cancelled
     if (!file) {
-      onFileChange(null);
+      onFileChangeCallback(null);
       setError(null);
       // Clear the file input visually
       if (event.target) {
@@ -60,13 +59,14 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
     if (file.type !== "text/csv") {
       const errorMsg = "Archivo no válido. Por favor, suba un archivo CSV.";
       setError(errorMsg);
-      onFileChange(null);
+      onFileChangeCallback(null);
       addLog(errorMsg, "error");
       toast({
         title: "Error de Archivo",
         description: errorMsg,
         variant: "destructive",
       });
+      setIsLoading(false); // Reset loading state on error
       if (event.target) event.target.value = ""; // Clear input on error
       return;
 
@@ -76,14 +76,14 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
       header: true,
       skipEmptyLines: true,
       complete: (results: ParseResult<Record<string, string>>) => {
-        const parsedData = results.data;
         setIsLoading(false); // Reset loading state on completion
+        const parsedData = results.data;
         const headers = results.meta.fields as string[] | undefined;
 
         if (!headers || headers.length === 0 || (headers.length === 1 && headers[0] === "")) {
           const errorMsg = "El archivo CSV está vacío, no tiene encabezados válidos o su formato es incorrecto.";
           setError(errorMsg);
-          onFileChange(null);
+          onFileChangeCallback(null);
           addLog(errorMsg, "error");
           toast({
             title: "Error de CSV",
@@ -97,7 +97,7 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
         if (parsedData.length === 0) {
            const errorMsg = "El archivo CSV no contiene datos (solo encabezados).";
            setError(errorMsg);
-           onFileChange(null);
+           onFileChangeCallback(null);
            addLog(errorMsg, "error");
            toast({
             title: "Archivo Vacío",
@@ -118,7 +118,7 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
         if (missingFields.length > 0) {
           const errorMsg = `Faltan las siguientes columnas requeridas en ${file.name}: ${missingFields.join(", ")}.`;
           setError(errorMsg);
-          onFileChange(null);
+          onFileChangeCallback(null);
           addLog(errorMsg, "error");
           toast({
             title: "Error de Validación de CSV",
@@ -127,8 +127,7 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
           });
           if (event.target) event.target.value = ""; 
         } else {
-          const fileWithData = file as (SpiderFile | GosomFile);
-          fileWithData.parsedData = parsedData;
+          const fileWithData = Object.assign(file, { parsedData });
 
           if (type === "spider") {
             onSpiderFileChange(fileWithData as SpiderFile);
@@ -147,7 +146,7 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
         setIsLoading(false); // Reset loading state on error
         const errorMsg = `Error al parsear el archivo CSV ${file.name}: ${error.message}`;
         setError(errorMsg);
-        onFileChange(null);
+        onFileChangeCallback(null);
         addLog(errorMsg, "error");
         toast({
           title: "Error de Parseo",
@@ -230,9 +229,10 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
             {gosomError && (
               <p id="gosom-file-status" className="text-sm text-destructive flex items-center">
                 <AlertCircle className="mr-1 h-4 w-4" /> {gosomError}
-              </p>\n            )}
+              </p>
+            )}
             {isGosomLoading && (
-              <p id=\"gosom-file-status\" className=\"text-sm text-blue-600 flex items-center\">
+              <p id="gosom-file-status" className="text-sm text-blue-600 flex items-center">
                  Cargando y validando...
               </p>
             )}
@@ -255,4 +255,3 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
 };
 
 export default UploadTabContent;
-

@@ -1,7 +1,6 @@
 
 "use client";
 import { useEffect, useState } from "react";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,7 +32,7 @@ export default function DataRefineryPage() {
   const [spiderFile, setSpiderFile] = useState<SpiderFile | null>(null);
   const [gosomFile, setGosomFile] = useState<GosomFile | null>(null);
   const [consolidatedData, setConsolidatedData] = useState<ConsolidatedData | null>(null);
-  const [chunkSize, setChunkSize] = useState<number>(50);
+  const [chunkSize, setChunkSize] = useState<number>(etlParams.chunk_size_default);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const { toast } = useToast();
 
@@ -42,14 +41,14 @@ export default function DataRefineryPage() {
   };
 
   const handleChunkSizeChange = (newSize: number) => {
-    if (isNaN(newSize) || newSize < 10) {
-        setChunkSize(10);
-        addLog("Tamaño de chunk inválido, establecido a 10.", "error");
-        toast({title: "Valor Inválido", description: "El tamaño mínimo del chunk es 10.", variant: "destructive"});
-    } else if (newSize > 500) {
-        setChunkSize(500);
-        addLog("Tamaño de chunk inválido, establecido a 500.", "error");
-        toast({title: "Valor Inválido", description: "El tamaño máximo del chunk es 500.", variant: "destructive"});
+    if (isNaN(newSize) || newSize < etlParams.chunk_size_min) {
+        setChunkSize(etlParams.chunk_size_min);
+        addLog(`Tamaño de chunk inválido, establecido a ${etlParams.chunk_size_min}.`, "error");
+        toast({title: "Valor Inválido", description: `El tamaño mínimo del chunk es ${etlParams.chunk_size_min}.`, variant: "destructive"});
+    } else if (newSize > etlParams.chunk_size_max) {
+        setChunkSize(etlParams.chunk_size_max);
+        addLog(`Tamaño de chunk inválido, establecido a ${etlParams.chunk_size_max}.`, "error");
+        toast({title: "Valor Inválido", description: `El tamaño máximo del chunk es ${etlParams.chunk_size_max}.`, variant: "destructive"});
     }
     else {
         setChunkSize(newSize);
@@ -62,10 +61,9 @@ export default function DataRefineryPage() {
     setSpiderFile(newFile);
 
     let changed = false;
-    if (newFile === null && oldFile !== null) { // File removed
+    if (newFile === null && oldFile !== null) { 
       changed = true;
     } else if (newFile && (!oldFile || newFile.name !== oldFile.name || newFile.size !== oldFile.size || newFile.lastModified !== oldFile.lastModified)) {
-      // New file uploaded or different file selected
       changed = true;
     }
 
@@ -80,10 +78,9 @@ export default function DataRefineryPage() {
     setGosomFile(newFile);
     
     let changed = false;
-    if (newFile === null && oldFile !== null) { // File removed
+    if (newFile === null && oldFile !== null) { 
       changed = true;
     } else if (newFile && (!oldFile || newFile.name !== oldFile.name || newFile.size !== oldFile.size || newFile.lastModified !== oldFile.lastModified)) {
-      // New file uploaded or different file selected
       changed = true;
     }
 
@@ -95,23 +92,15 @@ export default function DataRefineryPage() {
 
   useEffect(() => {
     if (spiderFile?.parsedData && gosomFile?.parsedData) {
-      addLog("Iniciando consolidación y deduplicación...");
-      try {
-        const result = consolidateAndDeduplicate(
-          spiderFile.parsedData,
-          gosomFile.parsedData,
-          etlParams.deduplication_keys,
-          etlParams.conflict_resolution_priority_source
-        );
-        setConsolidatedData(result);
-        addLog(`Consolidación completada. ${result.length} registros consolidados.`, "success");
-      } catch (error: any) {
-        addLog(`Error durante la consolidación: ${error.message}`, "error");
-      }
-    } else {
- setConsolidatedData(null); // Reset consolidated data if either file is missing or not parsed
+      // This automatic consolidation logic has been moved to the ConsolidateTabContent component's button handler.
+      // The useEffect might be re-evaluated if you want to trigger auto-consolidation on file changes,
+      // but for now, manual consolidation via the button is the primary flow.
+      // setConsolidatedData(null); // Ensure previous consolidated data is cleared if files change before manual reconsolidation
+      addLog("Archivos CSV de Spider y Gosom cargados y validados. Puede proceder a consolidar.", "info");
+    } else if (!spiderFile || !gosomFile) {
+       setConsolidatedData(null); 
     }
-  }, [spiderFile, gosomFile]); // Effect depends on spiderFile and gosomFile
+  }, [spiderFile, gosomFile]); 
 
 
   return (
@@ -138,12 +127,12 @@ export default function DataRefineryPage() {
                   type="number"
                   value={chunkSize}
                   onChange={(e) => handleChunkSizeChange(parseInt(e.target.value, 10))}
-                  min={10}
-                  max={500}
+                  min={etlParams.chunk_size_min}
+                  max={etlParams.chunk_size_max}
                   className="w-full"
                   aria-label="Tamaño de Chunk"
                 />
-                <p className="text-xs text-muted-foreground">Min: 10, Max: 500. Valor por defecto: 50.</p>
+                <p className="text-xs text-muted-foreground">Min: {etlParams.chunk_size_min}, Max: {etlParams.chunk_size_max}. Valor por defecto: {etlParams.chunk_size_default}.</p>
               </div>
             </SidebarGroupContent>
           </SidebarGroup>
