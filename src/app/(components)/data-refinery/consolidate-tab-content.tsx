@@ -6,6 +6,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DatabaseZap, AlertTriangle, CheckSquare, Download } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from "@tanstack/react-table";
 import type { SpiderFile, GosomFile, ConsolidatedData } from "./types";
 import { useToast } from "@/hooks/use-toast";
 import { consolidateAndDeduplicate, convertToCSV } from "@/lib/etl-logic";
@@ -18,6 +20,8 @@ interface ConsolidateTabContentProps {
   setConsolidatedData: (data: ConsolidatedData | null) => void;
   addLog: (message: string, type?: "info" | "error" | "success") => void;
 }
+
+// Define columns outside to prevent unnecessary re-renders, or dynamically within the component
 
 const ConsolidateTabContent: React.FC<ConsolidateTabContentProps> = ({
   spiderFile,
@@ -50,7 +54,8 @@ const ConsolidateTabContent: React.FC<ConsolidateTabContentProps> = ({
           spiderFile.parsedData!,
           gosomFile.parsedData!,
           etlParams.deduplication_keys,
-          etlParams.conflict_resolution_priority_source
+ etlParams.conflict_resolution_priority_source,
+ etlParams.column_mapping
         );
         setConsolidatedData(result);
         addLog(`Consolidación completada. ${result.length} registros procesados.`, "success");
@@ -111,6 +116,33 @@ const ConsolidateTabContent: React.FC<ConsolidateTabContentProps> = ({
     }
   };
 
+  // Dynamically generate columns based on the first data object
+  const columns = React.useMemo(() => {
+    if (!consolidatedData || consolidatedData.length === 0) {
+      return [];
+    }
+    const firstItem = consolidatedData[0];
+    return Object.keys(firstItem).map(key => ({
+      accessorKey: key,
+      header: key.charAt(0).toUpperCase() + key.slice(1), // Capitalize the first letter for header
+      // Add custom cell rendering if needed, e.g., for links or arrays
+      cell: ({ getValue }) => {
+        const value = getValue();
+        // Basic rendering for strings, numbers, etc.
+        // Consider adding specific rendering for URLs, arrays, or large objects if necessary
+        return typeof value === 'string' || typeof value === 'number' ? String(value) : JSON.stringify(value);
+      },
+    }));
+  }, [consolidatedData]); // Regenerate columns when consolidatedData changes
+
+  const table = useReactTable({
+    data: consolidatedData || [], // Provide an empty array if data is null
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
+  const { getHeaderGroups, getRowModel } = table;
+
 
   return (
     <div className="space-y-6 p-1">
@@ -161,6 +193,19 @@ const ConsolidateTabContent: React.FC<ConsolidateTabContentProps> = ({
             </div>
             <p className="mt-3 text-sm text-green-700">
               Total de registros consolidados: {consolidatedData.length}.
+            </p>
+            {spiderFile?.parsedData && (
+              <p className="mt-1 text-sm text-green-700">
+                Registros cargados de Spider: {spiderFile.parsedData.length}.
+              </p>
+            )}
+            {gosomFile?.parsedData && (
+              <p className="mt-1 text-sm text-green-700">
+                Registros cargados de Gosom: {gosomFile.parsedData.length}.
+              </p>
+            )}
+            <p className="mt-1 text-sm text-green-700">
+              Duplicados eliminados: {((spiderFile?.parsedData?.length || 0) + (gosomFile?.parsedData?.length || 0)) - consolidatedData.length}.
             </p>
             <Button onClick={handleDownloadConsolidated} className="mt-4">
               <Download className="mr-2 h-4 w-4" />

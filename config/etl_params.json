@@ -3,8 +3,8 @@
   "chunk_size_min": 10,
   "chunk_size_max": 500,
   "upload_validation": {
-    "spider_required_fields": ["nombre", "dirección", "teléfono"],
-    "gosom_required_fields": ["nombre", "website", "email"]
+    "spider_required_fields": ["titulo", "direccion", "telefono", "link"],
+    "gosom_required_fields": ["title", "address", "phone", "link"]
   },
   "deduplication_keys": ["link", "title"],
   "conflict_resolution_priority_source": "Gosom",
@@ -15,5 +15,42 @@
     "user": "your_db_user",
     "password": "your_db_password_placeholder"
   },
-  "log_file_path_conceptual": "data/logs/etl_central.log (conceptual, logs son en UI)"
+  "log_file_path_conceptual": "data/logs/etl_central.log (conceptual, logs son en UI)",
+  "column_mapping": {
+    "spider_to_consolidated": {
+      "titulo": "nombre",
+      "direccion": "direccion",
+      "telefono": "telefono",
+      "calificacion": "calificacion",
+      "num_opiniones": "num_opiniones",
+      "email": "email",
+      "link": "link"
+    },
+    "gosom_to_consolidated": {
+      "input_id": "input_id",
+      "link": "link",
+      "title": "nombre",
+      "category": "category",
+      "address": "direccion",
+      "open_hours": "open_hours",
+      "popular_times": "popular_times",
+      "website": "website",
+      "phone": "telefono",
+      "plus_code": "plus_code",
+      "review_count": "num_opiniones",
+      "review_rating": "calificacion",
+      "reviews_per_rating": "reviews_per_rating",
+      "latitude": "latitude",
+      "longitude": "longitude",
+      "cid": "cid",
+      "status": "status",
+      "descriptions": "descriptions",
+      "reviews_link": "reviews_link",
+      "thumbnail": "thumbnail",
+      "timezone": "timezone",
+      "price_range": "price_range",
+      "data_id": "data_id",
+      "images": "images", "reservations": "reservations", "order_online": "order_online", "menu": "menu", "owner": "owner", "complete_address": "complete_address", "about": "about", "user_reviews": "user_reviews", "user_reviews_extended": "user_reviews_extended", "emails": "email"
+    }
+  }
 }

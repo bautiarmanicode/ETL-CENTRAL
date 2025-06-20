@@ -45,9 +45,9 @@ Para ejecutar la aplicación localmente, sigue estos pasos:
 ### 2. **Consolidación y Deduplicación**  
 - **Lógica (Simulada en cliente):**  
   - Unir nuevos CSVs con datos consolidados en memoria.  
-  - Deduplicar usando `link` y `title` (simulado). Los datos de Gosom tienen prioridad en caso de conflicto.
+  - Deduplicar usando `link` y `title` (o los que se definan en la configuración). Los datos de Gosom tienen prioridad en caso de conflicto.
 
-### 3. **Chunking (Opcional)**  
+### 3. **Chunking (Opcional - Implementado en cliente)**  
 - **Parámetros:** Tamaño de chunk (configurable en la UI).  
 - **Salida:** Descarga de archivos CSV por chunk.
 
@@ -70,14 +70,11 @@ Dado que esta es una aplicación web frontend, los "archivos" y "directorios de 
 
 ---
 
-## 📚 Documentación Adicional  
+## 📚 Documentación Adicional
 - 🚀 **[Ideas Futuras](0_prompts/0_Futuro.md):**  
   - Integración con backend (ej. PostgreSQL usando Genkit).  
   - Automatización de ejecuciones (requeriría un backend).  
-- 📋 **[Tareas Pendientes](0_prompts/1_Mejoras.md):**  
-  - Mejorar la lógica real de deduplicación y chunking (actualmente simulada).  
-- ✅ **[Historial de Tareas Completadas](0_prompts/2_Historial.md):**  
-  - Registrar tareas resueltas.  
+- El plan completo del proyecto y el historial detallado de tareas completadas se encuentran en [0_PLAN_ETL_CENTRAL.md](0_PLAN_ETL_CENTRAL.md).
 
 ---
 

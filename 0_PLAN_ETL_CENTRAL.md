@@ -23,6 +23,8 @@ Centralizar el procesamiento de datos crudos de Spider y GOSOM, consolidándolos
 - [ ] **Generación de Chunks (`generateChunks`)**
   - [ ] Dividir datos consolidados según `chunkSize`.
   - [ ] Preparar cada chunk para descarga como CSV.
+  - [ ] Implementar lógica para seleccionar columnas a incluir en los chunks.
+  - [ ] Añadir columnas `id_chunk` y `fecha_chunk` a cada registro dentro de los chunks generados.
 - [ ] **Registro de Logs**
   - [x] Implementado mediante `addLog` prop en `page.tsx` y mostrado en `LogsTabContent.tsx`.
   - _Futuro: Si se usa backend/Genkit, considerar logging estructurado allí._
@@ -36,8 +38,10 @@ Centralizar el procesamiento de datos crudos de Spider y GOSOM, consolidándolos
   - [x] ✅ **Consolidar (`ConsolidateTabContent.tsx`):**
     - [x] ✅ Botón para iniciar la consolidación.✅ Mostrar datos consolidados reales (post-procesamiento).✅ Permitir descarga del CSV Madre consolidado.
   - [x] ✅ **Chunkear (`ChunkingTabContent.tsx`):**
+    - [ ] Reemplazar la vista previa básica con `JSON.stringify` por una tabla interactiva para visualizar los datos consolidados.
     - [x] ✅ Botón para generar chunks.✅ Usar datos consolidados reales.
     - [x] ✅ Mostrar lista de chunks reales generados para descarga. _Actual: Simulado._
+    - [ ] Añadir interfaz de usuario para seleccionar las columnas deseadas para el chunking.
   - [x] ✅ **Logs (`LogsTabContent.tsx`):**
     - [x] ✅ Muestra logs de la UI y operaciones simuladas.
  
@@ -45,6 +49,7 @@ Centralizar el procesamiento de datos crudos de Spider y GOSOM, consolidándolos
 - [x] `config/etl_params.json`:
     - [x] ✅ `chunk_size_default`, `chunk_size_min`, `chunk_size_max`.
     - [x] ✅ `upload_validation` (campos requeridos para Spider/Gosom).
+ - [ ] Refinar `upload_validation`, `deduplication_keys` y `conflict_resolution_priority_source` basándose en las columnas reales de los archivos de origen (Spider y Gosom de ejemplo).
     - [x] ✅ `deduplication_keys`.
     - [x] ✅ `conflict_resolution_priority_source`.
     - [x] ✅ `postgresql_config_placeholder`.
@@ -106,8 +111,6 @@ Centralizar el procesamiento de datos crudos de Spider y GOSOM, consolidándolos
 5. **Mejorar el feedback visual y manejo de estados (loading, success, error) en todas las pestañas durante estas operaciones.**
 
 ---
-## データベースフェーズ 2
-(FASE 2 BASE DE DATOS)
 
 - **Carga a PostgreSQL: Migrar datos del CSV madre a la base de datos** (requiere Genkit flow o API de backend).
 

@@ -7,6 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Orbit, AlertTriangle, CheckSquare, Download } from "lucide-react";
 import type { ConsolidatedData, DataChunk } from "./types";
 import { useToast } from "@/hooks/use-toast";
@@ -26,11 +32,34 @@ const ChunkingTabContent: React.FC<ChunkingTabContentProps> = ({
   addLog,
 }) => {
   const [generatedChunks, setGeneratedChunks] = useState<DataChunk[] | null>(null);
+  const [availableColumns, setAvailableColumns] = useState<string[]>([]);
+  const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
+  // Reset generated chunks when consolidated data changes
+
   useEffect(() => {
     setGeneratedChunks(null);
+    if (consolidatedData && consolidatedData.length > 0) {
+      // Assuming the first row contains all possible headers
+      const headers = Object.keys(consolidatedData[0]);
+      setAvailableColumns(headers);
+      setSelectedColumns(headers); // Select all columns by default
+    } else {
+      setAvailableColumns([]);
+      setSelectedColumns([]);
+    }
+  }, [consolidatedData]);
+
+  // Reset generated chunks when consolidated data changes
+  // Note: This effect was already present, combined with the new one above
+
+ useEffect(() => {
+ setGeneratedChunks(null);
+ if (!consolidatedData || consolidatedData.length === 0) {
+      setSelectedColumns([]); // Also reset selected columns if data is gone
+    }
   }, [consolidatedData]);
 
   const handleGenerateChunks = () => {
@@ -57,7 +86,7 @@ const ChunkingTabContent: React.FC<ChunkingTabContentProps> = ({
     addLog(`Iniciando generación de chunks con tamaño ${chunkSize}...`, "info");
     
     try {
-      const chunks = generateChunks(consolidatedData, chunkSize);
+      const chunks = generateChunks(consolidatedData, chunkSize, selectedColumns);
       setGeneratedChunks(chunks);
       addLog(`${chunks.length} chunks generados.`, "success");
       toast({
@@ -90,7 +119,8 @@ const ChunkingTabContent: React.FC<ChunkingTabContentProps> = ({
     }
 
     try {
-      const csvString = convertToCSV(chunkData);
+      const columnsToInclude = [...selectedColumns, 'id_chunk', 'fecha_chunk'];
+      const csvString = convertToCSV(chunkData, columnsToInclude); // Pass selected columns + chunk info
       if (!csvString) {
         addLog(`Error: No se pudo generar el contenido CSV para el chunk ${chunkIndex + 1}.`, "error");
         toast({
@@ -179,6 +209,12 @@ const ChunkingTabContent: React.FC<ChunkingTabContentProps> = ({
               Chunks Generados
             </CardTitle>
              <CardDescription className="text-green-600">
+              Total de registros consolidados: {consolidatedData?.length || 0}.
+            </CardDescription>
+             <CardDescription className="text-green-600">
+ Total de registros en chunks: {generatedChunks.reduce((sum, chunk) => sum + chunk.length, 0)}.
+ </CardDescription>
+ <CardDescription className="text-green-600">
               Se han generado {generatedChunks.length} chunks. Puede descargarlos individualmente.
             </CardDescription>
           </CardHeader>

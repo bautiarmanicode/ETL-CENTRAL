@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { FileUp, CheckCircle, AlertCircle } from "lucide-react";
 import type { SpiderFile, GosomFile } from "./types";
 import { useToast } from "@/hooks/use-toast";
@@ -201,6 +202,29 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
                 <CheckCircle className="mr-1 h-4 w-4" /> Cargado: {spiderFile.name} ({spiderFile.parsedData.length} registros)
               </p>
             )}
+            {!spiderError && spiderFile && spiderFile.parsedData && spiderFile.parsedData.length > 0 && (
+              <div className="mt-4 max-h-40 overflow-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {Object.keys(spiderFile.parsedData[0] || {}).map((header) => (
+                        <TableHead key={header} className="sticky top-0 bg-background">{header}</TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {spiderFile.parsedData.slice(0, 5).map((row, index) => (
+                      <TableRow key={index}>
+                        {Object.values(row).map((cellValue, cellIndex) => (
+                          <TableCell key={cellIndex} className="text-xs">{cellValue}</TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <p className="p-2 text-xs text-muted-foreground">Previsualización de los primeros {Math.min(5, spiderFile.parsedData.length)} de {spiderFile.parsedData.length} registros.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -239,6 +263,29 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
             {!gosomError && gosomFile && gosomFile.parsedData &&(
               <p id="gosom-file-status" className="text-sm text-green-600 flex items-center">
                 <CheckCircle className="mr-1 h-4 w-4" /> Cargado: {gosomFile.name} ({gosomFile.parsedData.length} registros)
+              </p>
+            )}
+            {!gosomError && gosomFile && gosomFile.parsedData && gosomFile.parsedData.length > 0 && (
+              <div className="mt-4 max-h-40 overflow-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {Object.keys(gosomFile.parsedData[0] || {}).map((header) => (
+                        <TableHead key={header} className="sticky top-0 bg-background">{header}</TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {gosomFile.parsedData.slice(0, 5).map((row, index) => (
+                      <TableRow key={index}>
+                        {Object.values(row).map((cellValue, cellIndex) => (
+                          <TableCell key={cellIndex} className="text-xs">{cellValue}</TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <p className="p-2 text-xs text-muted-foreground">Previsualización de los primeros {Math.min(5, gosomFile.parsedData.length)} de {gosomFile.parsedData.length} registros.</p>
               </p>
             )}
           </CardContent>
