@@ -13,48 +13,46 @@ import Papa from 'papaparse';
 export function consolidateAndDeduplicate(
   spiderDataRows: Record<string, string>[],
   gosomDataRows: Record<string, string>[],
- deduplicationKeys: string[],
+  deduplicationKeys: string[],
   prioritySource: string,
- columnMapping: { [source: string]: { [original: string]: string } } // Added columnMapping parameter
+  columnMapping: { [source: string]: { [original: string]: string } }
 ): ConsolidatedData {
   
- // Map Spider data to consolidated column names
- const mappedSpiderRecords = spiderDataRows.map((row, index) => {
+  const mappedSpiderRecords = spiderDataRows.map((row, index) => {
     const mappedRow: Record<string, string> = {};
- for (const key in row) {
- if (Object.hasOwnProperty.call(row, key)) {
-        const consolidatedKey = columnMapping.spider_to_consolidated[key] || key; // Use original key if not in mapping
- mappedRow[consolidatedKey] = row[key];
- }
+    for (const key in row) {
+      if (Object.hasOwnProperty.call(row, key)) {
+        const consolidatedKey = columnMapping.spider_to_consolidated[key] || key;
+        mappedRow[consolidatedKey] = row[key];
+      }
     }
- return {
- ...mappedRow,
-    _temp_id: `s_${index}`, // Temporal unique ID for processing
- source: 'Spider', // Add source information
- };
+    return {
+      ...mappedRow,
+      _temp_id: `s_${index}`,
+      source: 'Spider',
+    };
   });
 
- // Map Gosom data to consolidated column names
   const mappedGosomRecords = gosomDataRows.map((row, index) => {
     const mappedRow: Record<string, string> = {};
- for (const key in row) {
- if (Object.hasOwnProperty.call(row, key)) {
-        const consolidatedKey = columnMapping.gosom_to_consolidated[key] || key; // Use original key if not in mapping
- mappedRow[consolidatedKey] = row[key];
- }
+    for (const key in row) {
+      if (Object.hasOwnProperty.call(row, key)) {
+        const consolidatedKey = columnMapping.gosom_to_consolidated[key] || key;
+        mappedRow[consolidatedKey] = row[key];
+      }
     }
- return {
- ...mappedRow,
-    _temp_id: `g_${index}`,
-    source: 'Gosom',
-  }));
+    return {
+      ...mappedRow,
+      _temp_id: `g_${index}`,
+      source: 'Gosom',
+    };
+  });
 
-  const allRecords = [...spiderRecords, ...gosomRecords];
+  const allRecords = [...mappedSpiderRecords, ...mappedGosomRecords];
   const processedRecords: Map<string, Record<string, string>> = new Map();
 
   allRecords.forEach(currentRecord => {
-    // Use consolidated column names for deduplication keys
-    const dedupeKeyValues = deduplicationKeys.map(key => currentRecord[key] || ''); // Fallback to empty string if key is missing
+    const dedupeKeyValues = deduplicationKeys.map(key => currentRecord[key] || '');
     
     const allDedupeFieldsAreEmpty = dedupeKeyValues.every(val => val === '');
     const dedupeKeyValue = allDedupeFieldsAreEmpty
@@ -103,9 +101,10 @@ export function consolidateAndDeduplicate(
 /**
  * Convierte un array de objetos (ConsolidatedData o DataChunk) a una cadena CSV.
  * @param data Array de objetos a convertir.
+ * @param fields Opcional: Array de nombres de campos a incluir en el CSV.
  * @returns Cadena de texto en formato CSV.
  */
-export function convertToCSV(data: ConsolidatedData | DataChunk): string {
+export function convertToCSV(data: ConsolidatedData | DataChunk, fields?: string[]): string {
   if (!data || data.length === 0) {
     return "";
   }
@@ -155,5 +154,4 @@ export function generateChunks(
   // We will need to modify convertToCSV next to use a columns option from PapaParse
   // For now, generateChunks returns data with only selected columns + new info
 
-  return processedChunks;
-}
+  return processedChunks;}

@@ -6,7 +6,7 @@
     "spider_required_fields": ["titulo", "direccion", "telefono", "link"],
     "gosom_required_fields": ["title", "address", "phone", "link"]
   },
-  "deduplication_keys": ["link", "title"],
+  "deduplication_keys": ["link", "nombre"],
   "conflict_resolution_priority_source": "Gosom",
   "postgresql_config_placeholder": {
     "host": "your_db_host",

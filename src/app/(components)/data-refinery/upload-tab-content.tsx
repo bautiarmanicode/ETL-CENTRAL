@@ -286,7 +286,7 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
                   </TableBody>
                 </Table>
                 <p className="p-2 text-xs text-muted-foreground">Previsualización de los primeros {Math.min(5, gosomFile.parsedData.length)} de {gosomFile.parsedData.length} registros.</p>
-              </p>
+              </div>
             )}
           </CardContent>
         </Card>

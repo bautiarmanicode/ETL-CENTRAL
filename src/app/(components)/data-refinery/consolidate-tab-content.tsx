@@ -21,8 +21,6 @@ interface ConsolidateTabContentProps {
   addLog: (message: string, type?: "info" | "error" | "success") => void;
 }
 
-// Define columns outside to prevent unnecessary re-renders, or dynamically within the component
-
 const ConsolidateTabContent: React.FC<ConsolidateTabContentProps> = ({
   spiderFile,
   gosomFile,
@@ -47,15 +45,14 @@ const ConsolidateTabContent: React.FC<ConsolidateTabContentProps> = ({
     setIsLoading(true);
     addLog("Iniciando consolidación y deduplicación real...", "info");
     
-    // Simulate processing delay for user feedback
     setTimeout(() => {
       try {
         const result = consolidateAndDeduplicate(
           spiderFile.parsedData!,
           gosomFile.parsedData!,
           etlParams.deduplication_keys,
- etlParams.conflict_resolution_priority_source,
- etlParams.column_mapping
+          etlParams.conflict_resolution_priority_source,
+          etlParams.column_mapping
         );
         setConsolidatedData(result);
         addLog(`Consolidación completada. ${result.length} registros procesados.`, "success");
@@ -75,7 +72,7 @@ const ConsolidateTabContent: React.FC<ConsolidateTabContentProps> = ({
       } finally {
         setIsLoading(false);
       }
-    }, 500); // Short delay to allow UI update for loading state
+    }, 500);
   };
 
   const handleDownloadConsolidated = () => {
@@ -116,33 +113,28 @@ const ConsolidateTabContent: React.FC<ConsolidateTabContentProps> = ({
     }
   };
 
-  // Dynamically generate columns based on the first data object
-  const columns = React.useMemo(() => {
+  const columns = React.useMemo<ColumnDef<Record<string, string>>[]>(() => {
     if (!consolidatedData || consolidatedData.length === 0) {
       return [];
     }
     const firstItem = consolidatedData[0];
     return Object.keys(firstItem).map(key => ({
       accessorKey: key,
-      header: key.charAt(0).toUpperCase() + key.slice(1), // Capitalize the first letter for header
-      // Add custom cell rendering if needed, e.g., for links or arrays
+      header: key.charAt(0).toUpperCase() + key.slice(1),
       cell: ({ getValue }) => {
-        const value = getValue();
-        // Basic rendering for strings, numbers, etc.
-        // Consider adding specific rendering for URLs, arrays, or large objects if necessary
+        const value = getValue() as any;
         return typeof value === 'string' || typeof value === 'number' ? String(value) : JSON.stringify(value);
       },
     }));
-  }, [consolidatedData]); // Regenerate columns when consolidatedData changes
+  }, [consolidatedData]);
 
   const table = useReactTable({
-    data: consolidatedData || [], // Provide an empty array if data is null
+    data: consolidatedData || [],
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
 
   const { getHeaderGroups, getRowModel } = table;
-
 
   return (
     <div className="space-y-6 p-1">
@@ -187,11 +179,7 @@ const ConsolidateTabContent: React.FC<ConsolidateTabContentProps> = ({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="max-h-60 overflow-auto rounded-md border bg-background p-3 text-sm font-mono">
-              <pre>{JSON.stringify(consolidatedData.slice(0, 10), null, 2)}</pre>
-              {consolidatedData.length > 10 && <p className="mt-2 text-xs text-muted-foreground">Mostrando los primeros 10 de {consolidatedData.length} registros...</p>}
-            </div>
-            <p className="mt-3 text-sm text-green-700">
+            <p className="mt-2 text-sm text-green-700">
               Total de registros consolidados: {consolidatedData.length}.
             </p>
             {spiderFile?.parsedData && (
@@ -207,10 +195,43 @@ const ConsolidateTabContent: React.FC<ConsolidateTabContentProps> = ({
             <p className="mt-1 text-sm text-green-700">
               Duplicados eliminados: {((spiderFile?.parsedData?.length || 0) + (gosomFile?.parsedData?.length || 0)) - consolidatedData.length}.
             </p>
-            <Button onClick={handleDownloadConsolidated} className="mt-4">
+            <Button onClick={handleDownloadConsolidated} className="my-4">
               <Download className="mr-2 h-4 w-4" />
               Descargar CSV Madre
             </Button>
+
+            <div className="mt-4 max-h-60 overflow-auto rounded-md border">
+              <Table>
+                <TableHeader>
+                  {getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <TableHead key={header.id} className="sticky top-0 bg-background">
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(
+                                header.column.columnDef.header,
+                                header.getContext()
+                              )}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableHeader>
+                <TableBody>
+                  {getRowModel().rows.slice(0, 10).map((row) => (
+                    <TableRow key={row.id}>
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id} className="text-xs">
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <p className="p-2 text-xs text-muted-foreground">Previsualización de los primeros {Math.min(10, consolidatedData.length)} de {consolidatedData.length} registros.</p>
           </CardContent>
         </Card>
       )}
