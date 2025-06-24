@@ -2,32 +2,34 @@
 "use client";
 
 import type React from "react";
-import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, CheckSquare, Download } from "lucide-react";
+import { AlertTriangle, CheckSquare, Download, ListChecks, Check, X } from "lucide-react";
 import type { ConsolidatedData, DataChunk } from "./types";
 import { useToast } from "@/hooks/use-toast";
 import { convertToCSV } from "@/lib/etl-logic";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ChunkingTabContentProps {
   consolidatedData: ConsolidatedData | null;
   chunkSize: number;
-  onChunkSizeChange: (size: number) => void;
   addLog: (message: string, type?: "info" | "error" | "success") => void;
   generatedChunks: DataChunk[] | null;
+  availableColumns: string[];
   selectedColumns: string[];
+  onSelectedColumnsChange: (columns: string[]) => void;
 }
 
 const ChunkingTabContent: React.FC<ChunkingTabContentProps> = ({
   consolidatedData,
   chunkSize,
-  onChunkSizeChange,
   addLog,
   generatedChunks,
+  availableColumns,
   selectedColumns,
+  onSelectedColumnsChange,
 }) => {
   const { toast } = useToast();
 
@@ -43,10 +45,9 @@ const ChunkingTabContent: React.FC<ChunkingTabContentProps> = ({
     }
 
     try {
-      // The columns to include are the ones selected during generation.
-      // The chunk data already contains only these columns plus the chunk metadata.
-      const csvString = convertToCSV(chunkData, [...selectedColumns, 'id_chunk_process', 'fecha_chunk_process']);
-      if (!csvString) {
+      const chunkHeaders = chunkData.length > 0 ? Object.keys(chunkData[0]) : [];
+      const csvString = convertToCSV(chunkData, chunkHeaders);
+       if (!csvString) {
         addLog(`Error: No se pudo generar el contenido CSV para el chunk ${chunkIndex + 1}.`, "error");
         toast({
           title: "Error de Descarga",
@@ -56,7 +57,7 @@ const ChunkingTabContent: React.FC<ChunkingTabContentProps> = ({
         return;
       }
       
-      const encodedUri = "data:text/csv;charset=utf-8," + encodeURI(csvString);
+      const encodedUri = "data:text/csv;charset=utf-8," + "\uFEFF" + encodeURI(csvString);
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);
       link.setAttribute("download", `chunk_${chunkIndex + 1}.csv`);
@@ -75,10 +76,25 @@ const ChunkingTabContent: React.FC<ChunkingTabContentProps> = ({
     }
   };
 
+  const handleColumnSelectionChange = (column: string) => {
+    const newSelectedColumns = selectedColumns.includes(column)
+      ? selectedColumns.filter(c => c !== column)
+      : [...selectedColumns, column];
+    onSelectedColumnsChange(newSelectedColumns);
+  };
+
+  const handleSelectAll = () => {
+    onSelectedColumnsChange(availableColumns);
+  };
+
+  const handleDeselectAll = () => {
+    onSelectedColumnsChange([]);
+  };
+
   return (
     <div className="space-y-6 p-1">
       <p className="text-muted-foreground">
-        Divida el CSV Madre consolidado en chunks más pequeños. Puede iniciar la generación desde la barra lateral una vez que los datos estén consolidados.
+        Divida el CSV Madre en chunks. Primero, seleccione las columnas a incluir. Luego, inicie la generación desde la barra lateral.
       </p>
 
       {!consolidatedData ? (
@@ -91,12 +107,49 @@ const ChunkingTabContent: React.FC<ChunkingTabContentProps> = ({
           </CardHeader>
           <CardContent>
             <p className="text-amber-700">
-              Por favor, consolide los datos en la pestaña "Consolidar y Deduplicar" antes de generar chunks.
+              Por favor, consolide los datos en la pestaña "Consolidar" antes de configurar y generar chunks.
             </p>
           </CardContent>
         </Card>
       ) : !generatedChunks ? (
-        <Card>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+               <CardTitle className="font-headline flex items-center">
+                <ListChecks className="mr-2 h-6 w-6"/>
+                Seleccionar Columnas para Chunks
+              </CardTitle>
+               <CardDescription>
+                Elija las columnas que desea incluir en los archivos CSV de los chunks.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={handleSelectAll}>
+                    <Check className="mr-2 h-4 w-4" /> Seleccionar Todas
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleDeselectAll}>
+                    <X className="mr-2 h-4 w-4" /> Deseleccionar Todas
+                  </Button>
+              </div>
+               <ScrollArea className="h-64 rounded-md border p-4">
+                  <div className="space-y-2">
+                    {availableColumns.map(col => (
+                      <div key={col} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`col-${col}`}
+                          checked={selectedColumns.includes(col)}
+                          onCheckedChange={() => handleColumnSelectionChange(col)}
+                        />
+                        <Label htmlFor={`col-${col}`} className="font-normal cursor-pointer">{col}</Label>
+                      </div>
+                    ))}
+                  </div>
+               </ScrollArea>
+                <p className="text-sm text-muted-foreground">{selectedColumns.length} de {availableColumns.length} columnas seleccionadas.</p>
+            </CardContent>
+          </Card>
+          <Card>
           <CardHeader>
              <CardTitle className="font-headline flex items-center">
               Vista Previa de Chunking
@@ -107,19 +160,24 @@ const ChunkingTabContent: React.FC<ChunkingTabContentProps> = ({
           </CardHeader>
           <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="chunk-size-tab">Registros en el CSV Madre:</Label>
+                <Label>Registros en el CSV Madre:</Label>
                 <p className="text-2xl font-bold">{consolidatedData.length}</p>
               </div>
               <div>
-                <Label htmlFor="chunk-size-tab">Tamaño de Chunk Configurado:</Label>
+                <Label>Tamaño de Chunk Configurado:</Label>
                 <p className="text-2xl font-bold">{chunkSize}</p>
               </div>
                <div>
-                <Label htmlFor="chunk-size-tab">Chunks a Generar:</Label>
+                <Label>Chunks a Generar (Aprox.):</Label>
                 <p className="text-2xl font-bold">{Math.ceil(consolidatedData.length / chunkSize)}</p>
+              </div>
+               <div>
+                <Label>Columnas a Incluir:</Label>
+                <p className="text-2xl font-bold">{selectedColumns.length}</p>
               </div>
           </CardContent>
         </Card>
+        </div>
       ) : (
          <Card className="mt-6 border-green-500 bg-green-50">
           <CardHeader>
@@ -128,30 +186,29 @@ const ChunkingTabContent: React.FC<ChunkingTabContentProps> = ({
               Chunks Generados
             </CardTitle>
              <CardDescription className="text-green-600">
-              Total de registros consolidados: {consolidatedData?.length || 0}.
-             </CardDescription>
-             <CardDescription className="text-green-600">
-                Total de registros en chunks: {generatedChunks.reduce((sum, chunk) => sum + chunk.length, 0)}.
-             </CardDescription>
-             <CardDescription className="text-green-600">
               Se han generado {generatedChunks.length} chunks. Puede descargarlos individualmente.
+            </CardDescription>
+             <CardDescription className="text-green-600">
+              Columnas incluidas: {selectedColumns.join(', ')}.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="max-h-80 overflow-auto space-y-3">
-              {generatedChunks.map((chunk, index) => (
-                <div key={index} className="p-3 border rounded-md bg-background flex justify-between items-center">
-                  <div>
-                    <p className="font-medium">Chunk {index + 1}</p>
-                    <p className="text-sm text-muted-foreground">{chunk.length} registros</p>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={() => handleDownloadChunk(index, chunk)}>
-                    <Download className="mr-2 h-4 w-4" />
-                    Descargar
-                  </Button>
+            <ScrollArea className="h-80">
+                <div className="space-y-3 pr-4">
+                {generatedChunks.map((chunk, index) => (
+                    <div key={index} className="p-3 border rounded-md bg-background flex justify-between items-center">
+                    <div>
+                        <p className="font-medium">Chunk {index + 1}</p>
+                        <p className="text-sm text-muted-foreground">{chunk.length} registros</p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => handleDownloadChunk(index, chunk)}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Descargar
+                    </Button>
+                    </div>
+                ))}
                 </div>
-              ))}
-            </div>
+            </ScrollArea>
           </CardContent>
         </Card>
       )}
@@ -160,3 +217,4 @@ const ChunkingTabContent: React.FC<ChunkingTabContentProps> = ({
 };
 
 export default ChunkingTabContent;
+

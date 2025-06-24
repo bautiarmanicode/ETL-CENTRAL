@@ -1,6 +1,5 @@
-
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,6 +25,7 @@ import type { SpiderFile, GosomFile, LogEntry, ConsolidatedData, DataChunk } fro
 import { useToast } from "@/hooks/use-toast";
 import { consolidateAndDeduplicate, generateChunks, convertToCSV } from "@/lib/etl-logic";
 import etlParams from "../../config/etl_params.json";
+import { Separator } from "@/components/ui/separator";
 
 export default function DataRefineryPage() {
   const [spiderFile, setSpiderFile] = useState<SpiderFile | null>(null);
@@ -39,13 +39,19 @@ export default function DataRefineryPage() {
   const [isLoadingChunks, setIsLoadingChunks] = useState(false);
   const [generatedChunks, setGeneratedChunks] = useState<DataChunk[] | null>(null);
   const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
+  
+  const availableColumns = useMemo(() => {
+    if (!consolidatedData || consolidatedData.length === 0) return [];
+    // Ensure 'id' and 'source' are not selectable for chunks
+    return Object.keys(consolidatedData[0]).filter(col => col !== 'id' && col !== 'source');
+  }, [consolidatedData]);
 
   useEffect(() => {
-    // Reset chunks and selected columns when consolidated data changes
+    // Reset chunks when consolidated data changes
     setGeneratedChunks(null);
     if (consolidatedData && consolidatedData.length > 0) {
-      const headers = Object.keys(consolidatedData[0]);
-      setSelectedColumns(headers);
+      // Auto-select all available columns by default, except for internal ones
+      setSelectedColumns(Object.keys(consolidatedData[0]).filter(col => col !== 'id' && col !== 'source'));
     } else {
       setSelectedColumns([]);
     }
@@ -82,7 +88,7 @@ export default function DataRefineryPage() {
       changed = true;
     }
 
-    if (changed && consolidatedData !== null) {
+    if (changed) {
       setConsolidatedData(null);
       addLog("Archivo Spider modificado/eliminado. Datos consolidados y chunks reiniciados.", "info");
     }
@@ -99,7 +105,7 @@ export default function DataRefineryPage() {
       changed = true;
     }
 
-    if (changed && consolidatedData !== null) {
+    if (changed) {
       setConsolidatedData(null);
       addLog("Archivo Gosom modificado/eliminado. Datos consolidados y chunks reiniciados.", "info");
     }
@@ -150,13 +156,13 @@ export default function DataRefineryPage() {
       return;
     }
     if (selectedColumns.length === 0) {
-      addLog("Error: No hay columnas para incluir en los chunks.", "error");
-      toast({ title: "Columnas Faltantes", description: "Error al determinar columnas para los chunks.", variant: "destructive" });
+      addLog("Error: Debes seleccionar al menos una columna para incluir en los chunks.", "error");
+      toast({ title: "Columnas no Seleccionadas", description: "Por favor, seleccione al menos una columna.", variant: "destructive" });
       return;
     }
 
     setIsLoadingChunks(true);
-    addLog(`Iniciando generación de chunks con tamaño ${chunkSize}...`, "info");
+    addLog(`Iniciando generación de chunks con tamaño ${chunkSize} y ${selectedColumns.length} columnas...`, "info");
     
     try {
       const chunks = generateChunks(consolidatedData, chunkSize, selectedColumns);
@@ -185,8 +191,10 @@ export default function DataRefineryPage() {
     }
 
     try {
-      const csvString = convertToCSV(consolidatedData);
-      const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+      // Use all available columns for the master CSV download
+      const allCols = Object.keys(consolidatedData[0]);
+      const csvString = convertToCSV(consolidatedData, allCols);
+      const blob = new Blob([`\uFEFF${csvString}`], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement("a");
       const url = URL.createObjectURL(blob);
       link.setAttribute("href", url);
@@ -257,15 +265,7 @@ export default function DataRefineryPage() {
                 <DatabaseZap className="mr-2 h-5 w-5" />
                 {isLoadingConsolidate ? "Procesando..." : (consolidatedData !== null ? "Datos Consolidados" : "Consolidar Datos")}
               </Button>
-              <Button
-                onClick={handleGenerateChunks}
-                className="w-full"
-                disabled={!consolidatedData || generatedChunks !== null || isLoadingChunks}
-              >
-                <Orbit className="mr-2 h-5 w-5" />
-                {isLoadingChunks ? "Generando..." : (generatedChunks !== null ? "Chunks Generados" : "Generar Chunks")}
-              </Button>
-              <Button
+               <Button
                 onClick={handleDownloadConsolidated}
                 className="w-full"
                 variant="outline"
@@ -273,6 +273,15 @@ export default function DataRefineryPage() {
               >
                 <Download className="mr-2 h-5 w-5" />
                 Descargar CSV Madre
+              </Button>
+               <Separator className="my-2" />
+              <Button
+                onClick={handleGenerateChunks}
+                className="w-full"
+                disabled={!consolidatedData || generatedChunks !== null || isLoadingChunks}
+              >
+                <Orbit className="mr-2 h-5 w-5" />
+                {isLoadingChunks ? "Generando..." : (generatedChunks !== null ? "Chunks Generados" : "Generar Chunks")}
               </Button>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -294,10 +303,10 @@ export default function DataRefineryPage() {
               <TabsTrigger value="upload" className="text-xs sm:text-sm">
                 <FileUp className="mr-1 sm:mr-2 h-4 w-4" /> Cargar CSVs
               </TabsTrigger>
-              <TabsTrigger value="consolidate" className="text-xs sm:text-sm">
+              <TabsTrigger value="consolidate" className="text-xs sm:text-sm" disabled={!spiderFile || !gosomFile}>
                 <DatabaseZap className="mr-1 sm:mr-2 h-4 w-4" /> Consolidar
               </TabsTrigger>
-              <TabsTrigger value="chunking" className="text-xs sm:text-sm">
+              <TabsTrigger value="chunking" className="text-xs sm:text-sm" disabled={!consolidatedData}>
                 <Orbit className="mr-1 sm:mr-2 h-4 w-4" /> Chunkear
               </TabsTrigger>
               <TabsTrigger value="logs" className="text-xs sm:text-sm">
@@ -326,10 +335,11 @@ export default function DataRefineryPage() {
               <ChunkingTabContent
                 consolidatedData={consolidatedData}
                 chunkSize={chunkSize}
-                onChunkSizeChange={handleChunkSizeChange}
                 addLog={addLog}
                 generatedChunks={generatedChunks}
+                availableColumns={availableColumns}
                 selectedColumns={selectedColumns}
+                onSelectedColumnsChange={setSelectedColumns}
               />
             </TabsContent>
             <TabsContent value="logs">

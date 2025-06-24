@@ -54,21 +54,22 @@ export function consolidateAndDeduplicate(
   allRecords.forEach(currentRecord => {
     const dedupeKeyValues = deduplicationKeys.map(key => currentRecord[key] || '');
     
-    const allDedupeFieldsAreEmpty = dedupeKeyValues.every(val => val === '');
+    const allDedupeFieldsAreEmpty = dedupeKeyValues.every(val => val === '' || val === null || val === undefined);
     const dedupeKeyValue = allDedupeFieldsAreEmpty
       ? `temp_id_${currentRecord._temp_id}`
       : dedupeKeyValues.join('|');
 
     if (processedRecords.has(dedupeKeyValue)) {
-      const existingRecord = processedRecords.get(dedupeKeyValue)!;
+      let existingRecord = processedRecords.get(dedupeKeyValue)!;
       let winner: Record<string, string>;
       let loser: Record<string, string>;
 
-      // Prioritize record from prioritySource
       if (currentRecord.source === prioritySource && existingRecord.source !== prioritySource) {
         winner = currentRecord;
         loser = existingRecord;
       } else if (existingRecord.source === prioritySource && currentRecord.source !== prioritySource) {
+        winner = existingRecord;
+        loser = currentRecord;
       } else { 
         winner = currentRecord;
         loser = existingRecord;
@@ -97,15 +98,18 @@ export function consolidateAndDeduplicate(
 /**
  * Convierte un array de objetos (ConsolidatedData o DataChunk) a una cadena CSV.
  * @param data Array de objetos a convertir.
- * @param fields Opcional: Array de nombres de campos a incluir en el CSV.
+ * @param fields Opcional: Array de nombres de campos a incluir en el CSV. Si no se provee, se usarán los campos del primer objeto.
  * @returns Cadena de texto en formato CSV.
  */
 export function convertToCSV(data: ConsolidatedData | DataChunk, fields?: string[]): string {
   if (!data || data.length === 0) {
     return "";
   }
-  return Papa.unparse(data, { fields });
+  // If no fields are provided, PapaParse will use the keys from the first object.
+  // This is desirable for the consolidated CSV, but for chunks we pass the selected fields.
+  return Papa.unparse(data, { columns: fields, header: true });
 }
+
 
 /**
  * Genera chunks de datos a partir de un array de datos consolidados.
@@ -147,3 +151,4 @@ export function generateChunks(
   }
 
   return processedChunks;}
+

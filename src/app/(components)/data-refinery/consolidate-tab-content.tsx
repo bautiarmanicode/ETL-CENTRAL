@@ -1,13 +1,14 @@
 
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, CheckSquare } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from "@tanstack/react-table";
 import type { SpiderFile, GosomFile, ConsolidatedData } from "./types";
 import etlParams from "../../../../config/etl_params.json";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ConsolidateTabContentProps {
   spiderFile: SpiderFile | null;
@@ -23,17 +24,24 @@ const ConsolidateTabContent: React.FC<ConsolidateTabContentProps> = ({
   addLog,
 }) => {
 
-  const columns = React.useMemo<ColumnDef<Record<string, string>>[]>(() => {
+  const columns: ColumnDef<Record<string, string>>[] = useMemo(() => {
     if (!consolidatedData || consolidatedData.length === 0) {
       return [];
     }
     const firstItem = consolidatedData[0];
-    return Object.keys(firstItem).map(key => ({
+    // Exclude internal fields from the table view
+    const visibleKeys = Object.keys(firstItem).filter(key => key !== '_temp_id');
+
+    return visibleKeys.map(key => ({
       accessorKey: key,
       header: key.charAt(0).toUpperCase() + key.slice(1),
       cell: ({ getValue }) => {
         const value = getValue() as any;
-        return typeof value === 'string' || typeof value === 'number' ? String(value) : JSON.stringify(value);
+        let displayValue = typeof value === 'string' || typeof value === 'number' ? String(value) : JSON.stringify(value);
+        if (displayValue && displayValue.length > 50) {
+          displayValue = displayValue.substring(0, 50) + '...';
+        }
+        return <span title={value}>{displayValue}</span>;
       },
     }));
   }, [consolidatedData]);
@@ -112,13 +120,13 @@ const ConsolidateTabContent: React.FC<ConsolidateTabContentProps> = ({
               Duplicados eliminados: {((spiderFile?.parsedData?.length || 0) + (gosomFile?.parsedData?.length || 0)) - consolidatedData.length}.
             </p>
             
-            <div className="mt-4 max-h-60 overflow-auto rounded-md border">
+            <ScrollArea className="mt-4 max-h-96 rounded-md border">
               <Table>
                 <TableHeader>
                   {getHeaderGroups().map((headerGroup) => (
                     <TableRow key={headerGroup.id}>
                       {headerGroup.headers.map((header) => (
-                        <TableHead key={header.id} className="sticky top-0 bg-background">
+                        <TableHead key={header.id} className="sticky top-0 bg-background/95 backdrop-blur">
                           {header.isPlaceholder
                             ? null
                             : flexRender(
@@ -134,7 +142,7 @@ const ConsolidateTabContent: React.FC<ConsolidateTabContentProps> = ({
                   {getRowModel().rows.slice(0, 10).map((row) => (
                     <TableRow key={row.id}>
                       {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id} className="text-xs">
+                        <TableCell key={cell.id} className="text-xs max-w-[200px] truncate">
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </TableCell>
                       ))}
@@ -142,7 +150,7 @@ const ConsolidateTabContent: React.FC<ConsolidateTabContentProps> = ({
                   ))}
                 </TableBody>
               </Table>
-            </div>
+            </ScrollArea>
             <p className="p-2 text-xs text-muted-foreground">Previsualización de los primeros {Math.min(10, consolidatedData.length)} de {consolidatedData.length} registros.</p>
           </CardContent>
         </Card>
@@ -152,3 +160,4 @@ const ConsolidateTabContent: React.FC<ConsolidateTabContentProps> = ({
 };
 
 export default ConsolidateTabContent;
+
