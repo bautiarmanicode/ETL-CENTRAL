@@ -2,14 +2,11 @@
 "use client";
 
 import React from "react";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, CheckSquare, Download } from "lucide-react";
+import { AlertTriangle, CheckSquare } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from "@tanstack/react-table";
 import type { SpiderFile, GosomFile, ConsolidatedData } from "./types";
-import { useToast } from "@/hooks/use-toast";
-import { convertToCSV } from "@/lib/etl-logic";
 import etlParams from "../../../../config/etl_params.json";
 
 interface ConsolidateTabContentProps {
@@ -25,45 +22,6 @@ const ConsolidateTabContent: React.FC<ConsolidateTabContentProps> = ({
   consolidatedData,
   addLog,
 }) => {
-  const { toast } = useToast();
-
-  const handleDownloadConsolidated = () => {
-    if (!consolidatedData || consolidatedData.length === 0) {
-      addLog("Error: No hay datos consolidados para descargar.", "error");
-      toast({
-        title: "Sin Datos para Descargar",
-        description: "No hay datos consolidados disponibles.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const csvString = convertToCSV(consolidatedData);
-      const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement("a");
-      const url = URL.createObjectURL(blob);
-      link.setAttribute("href", url);
-      link.setAttribute("download", "consolidated_mother_data.csv");
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      addLog("CSV Madre consolidado descargado.", "success");
-      toast({
-        title: "Descarga Iniciada",
-        description: "El archivo CSV Madre consolidado ha comenzado a descargarse.",
-      });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Un error desconocido ocurrió durante la preparación de la descarga.";
-      addLog(`Error al descargar CSV consolidado: ${errorMessage}`, "error");
-      toast({
-        title: "Error de Descarga",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    }
-  };
 
   const columns = React.useMemo<ColumnDef<Record<string, string>>[]>(() => {
     if (!consolidatedData || consolidatedData.length === 0) {
@@ -133,7 +91,7 @@ const ConsolidateTabContent: React.FC<ConsolidateTabContentProps> = ({
               Datos Consolidados
             </CardTitle>
             <CardDescription className="text-green-600">
-              A continuación se muestra una vista previa de los datos consolidados. Puede descargar el archivo CSV completo.
+              A continuación se muestra una vista previa de los datos consolidados. Puede descargar el archivo CSV completo desde la barra lateral.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -153,11 +111,7 @@ const ConsolidateTabContent: React.FC<ConsolidateTabContentProps> = ({
             <p className="mt-1 text-sm text-green-700">
               Duplicados eliminados: {((spiderFile?.parsedData?.length || 0) + (gosomFile?.parsedData?.length || 0)) - consolidatedData.length}.
             </p>
-            <Button onClick={handleDownloadConsolidated} className="my-4">
-              <Download className="mr-2 h-4 w-4" />
-              Descargar CSV Madre
-            </Button>
-
+            
             <div className="mt-4 max-h-60 overflow-auto rounded-md border">
               <Table>
                 <TableHeader>

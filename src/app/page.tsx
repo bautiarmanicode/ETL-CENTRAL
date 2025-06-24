@@ -16,7 +16,7 @@ import {
   SidebarGroupContent,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { FileUp, DatabaseZap, Orbit, FileText, Settings2, Bot } from "lucide-react";
+import { FileUp, DatabaseZap, Orbit, FileText, Settings2, Bot, Download } from "lucide-react";
 
 import UploadTabContent from "./(components)/data-refinery/upload-tab-content";
 import ConsolidateTabContent from "./(components)/data-refinery/consolidate-tab-content";
@@ -24,7 +24,7 @@ import ChunkingTabContent from "./(components)/data-refinery/chunking-tab-conten
 import LogsTabContent from "./(components)/data-refinery/logs-tab-content";
 import type { SpiderFile, GosomFile, LogEntry, ConsolidatedData, DataChunk } from "./(components)/data-refinery/types";
 import { useToast } from "@/hooks/use-toast";
-import { consolidateAndDeduplicate, generateChunks } from "@/lib/etl-logic";
+import { consolidateAndDeduplicate, generateChunks, convertToCSV } from "@/lib/etl-logic";
 import etlParams from "../../config/etl_params.json";
 
 export default function DataRefineryPage() {
@@ -173,6 +173,44 @@ export default function DataRefineryPage() {
     }
   };
 
+  const handleDownloadConsolidated = () => {
+    if (!consolidatedData || consolidatedData.length === 0) {
+      addLog("Error: No hay datos consolidados para descargar.", "error");
+      toast({
+        title: "Sin Datos para Descargar",
+        description: "No hay datos consolidados disponibles.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const csvString = convertToCSV(consolidatedData);
+      const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", "consolidated_mother_data.csv");
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      addLog("CSV Madre consolidado descargado.", "success");
+      toast({
+        title: "Descarga Iniciada",
+        description: "El archivo CSV Madre consolidado ha comenzado a descargarse.",
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Un error desconocido ocurrió durante la preparación de la descarga.";
+      addLog(`Error al descargar CSV consolidado: ${errorMessage}`, "error");
+      toast({
+        title: "Error de Descarga",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <SidebarProvider defaultOpen>
       <Sidebar variant="sidebar" collapsible="icon" className="border-r">
@@ -226,6 +264,15 @@ export default function DataRefineryPage() {
               >
                 <Orbit className="mr-2 h-5 w-5" />
                 {isLoadingChunks ? "Generando..." : (generatedChunks !== null ? "Chunks Generados" : "Generar Chunks")}
+              </Button>
+              <Button
+                onClick={handleDownloadConsolidated}
+                className="w-full"
+                variant="outline"
+                disabled={!consolidatedData}
+              >
+                <Download className="mr-2 h-5 w-5" />
+                Descargar CSV Madre
               </Button>
             </SidebarGroupContent>
           </SidebarGroup>
