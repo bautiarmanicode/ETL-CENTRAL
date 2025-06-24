@@ -1,23 +1,21 @@
 
 "use client";
 
-import type React from "react";
-import { useState } from "react";
+import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { DatabaseZap, AlertTriangle, CheckSquare, Download } from "lucide-react";
+import { AlertTriangle, CheckSquare, Download } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from "@tanstack/react-table";
 import type { SpiderFile, GosomFile, ConsolidatedData } from "./types";
 import { useToast } from "@/hooks/use-toast";
-import { consolidateAndDeduplicate, convertToCSV } from "@/lib/etl-logic";
+import { convertToCSV } from "@/lib/etl-logic";
 import etlParams from "../../../../config/etl_params.json";
 
 interface ConsolidateTabContentProps {
   spiderFile: SpiderFile | null;
   gosomFile: GosomFile | null;
   consolidatedData: ConsolidatedData | null;
-  setConsolidatedData: (data: ConsolidatedData | null) => void;
   addLog: (message: string, type?: "info" | "error" | "success") => void;
 }
 
@@ -25,55 +23,9 @@ const ConsolidateTabContent: React.FC<ConsolidateTabContentProps> = ({
   spiderFile,
   gosomFile,
   consolidatedData,
-  setConsolidatedData,
   addLog,
 }) => {
-  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-
-  const handleConsolidate = () => {
-    if (!spiderFile || !spiderFile.parsedData || !gosomFile || !gosomFile.parsedData) {
-      addLog("Error: Se requieren datos parseados de Spider y Gosom para consolidar.", "error");
-      toast({
-        title: "Archivos o Datos Faltantes",
-        description: "Por favor, cargue y valide los archivos CSV de Spider y Gosom primero.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    addLog("Iniciando consolidación y deduplicación real...", "info");
-    
-    setTimeout(() => {
-      try {
-        const result = consolidateAndDeduplicate(
-          spiderFile.parsedData!,
-          gosomFile.parsedData!,
-          etlParams.deduplication_keys,
-          etlParams.conflict_resolution_priority_source,
-          etlParams.column_mapping
-        );
-        setConsolidatedData(result);
-        addLog(`Consolidación completada. ${result.length} registros procesados.`, "success");
-        toast({
-          title: "Consolidación Exitosa",
-          description: `Los datos han sido consolidados y deduplicados. ${result.length} registros resultantes.`,
-        });
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Un error desconocido ocurrió durante la consolidación.";
-        addLog(`Error durante la consolidación: ${errorMessage}`, "error");
-        toast({
-          title: "Error de Consolidación",
-          description: errorMessage,
-          variant: "destructive",
-        });
-        setConsolidatedData(null);
-      } finally {
-        setIsLoading(false);
-      }
-    }, 500);
-  };
 
   const handleDownloadConsolidated = () => {
     if (!consolidatedData || consolidatedData.length === 0) {
@@ -139,7 +91,7 @@ const ConsolidateTabContent: React.FC<ConsolidateTabContentProps> = ({
   return (
     <div className="space-y-6 p-1">
       <p className="text-muted-foreground">
-        Una los datos de los CSVs cargados. Se realizará una deduplicación basada en los campos definidos en `etl_params.json` ({etlParams.deduplication_keys.join(', ')}). Los datos de {etlParams.conflict_resolution_priority_source} tendrán prioridad en caso de conflicto.
+        Una los datos de los CSVs cargados. Inicie el proceso desde el botón "Consolidar Datos" en la barra lateral. La deduplicación se basará en los campos definidos en `etl_params.json` ({etlParams.deduplication_keys.join(', ')}). Los datos de {etlParams.conflict_resolution_priority_source} tendrán prioridad en caso de conflicto.
       </p>
       
       {!spiderFile || !gosomFile || !spiderFile.parsedData || !gosomFile.parsedData ? (
@@ -157,14 +109,20 @@ const ConsolidateTabContent: React.FC<ConsolidateTabContentProps> = ({
           </CardContent>
         </Card>
       ) : (
-        <Button 
-          onClick={handleConsolidate} 
-          size="lg" 
-          disabled={isLoading || consolidatedData !== null}
-        >
-          <DatabaseZap className="mr-2 h-5 w-5" />
-          {isLoading ? "Procesando..." : (consolidatedData !== null ? "Datos Ya Consolidados" : "Consolidar y Deduplicar Datos")}
-        </Button>
+        !consolidatedData && (
+             <Card>
+                <CardHeader>
+                    <CardTitle className="font-headline flex items-center">
+                    Listo para Consolidar
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-muted-foreground">
+                    Los archivos de Spider y Gosom están cargados y validados. Haga clic en el botón <strong>Consolidar Datos</strong> en la barra lateral para comenzar el proceso.
+                    </p>
+                </CardContent>
+            </Card>
+        )
       )}
 
       {consolidatedData && (

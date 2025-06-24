@@ -16,16 +16,15 @@ import {
   SidebarGroupContent,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
 import { FileUp, DatabaseZap, Orbit, FileText, Settings2, Bot } from "lucide-react";
 
 import UploadTabContent from "./(components)/data-refinery/upload-tab-content";
 import ConsolidateTabContent from "./(components)/data-refinery/consolidate-tab-content";
 import ChunkingTabContent from "./(components)/data-refinery/chunking-tab-content";
 import LogsTabContent from "./(components)/data-refinery/logs-tab-content";
-import type { SpiderFile, GosomFile, LogEntry, ConsolidatedData } from "./(components)/data-refinery/types";
+import type { SpiderFile, GosomFile, LogEntry, ConsolidatedData, DataChunk } from "./(components)/data-refinery/types";
 import { useToast } from "@/hooks/use-toast";
-import { consolidateAndDeduplicate } from "@/lib/etl-logic";
+import { consolidateAndDeduplicate, generateChunks } from "@/lib/etl-logic";
 import etlParams from "../../config/etl_params.json";
 
 export default function DataRefineryPage() {
@@ -35,6 +34,22 @@ export default function DataRefineryPage() {
   const [chunkSize, setChunkSize] = useState<number>(etlParams.chunk_size_default);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const { toast } = useToast();
+
+  const [isLoadingConsolidate, setIsLoadingConsolidate] = useState(false);
+  const [isLoadingChunks, setIsLoadingChunks] = useState(false);
+  const [generatedChunks, setGeneratedChunks] = useState<DataChunk[] | null>(null);
+  const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
+
+  useEffect(() => {
+    // Reset chunks and selected columns when consolidated data changes
+    setGeneratedChunks(null);
+    if (consolidatedData && consolidatedData.length > 0) {
+      const headers = Object.keys(consolidatedData[0]);
+      setSelectedColumns(headers);
+    } else {
+      setSelectedColumns([]);
+    }
+  }, [consolidatedData]);
 
   const addLog = (message: string, type: "info" | "error" | "success" = "info") => {
     setLogs((prevLogs) => [...prevLogs, { timestamp: new Date(), message, type }]);
@@ -90,18 +105,73 @@ export default function DataRefineryPage() {
     }
   };
 
-  useEffect(() => {
-    if (spiderFile?.parsedData && gosomFile?.parsedData) {
-      // This automatic consolidation logic has been moved to the ConsolidateTabContent component's button handler.
-      // The useEffect might be re-evaluated if you want to trigger auto-consolidation on file changes,
-      // but for now, manual consolidation via the button is the primary flow.
-      // setConsolidatedData(null); // Ensure previous consolidated data is cleared if files change before manual reconsolidation
-      addLog("Archivos CSV de Spider y Gosom cargados y validados. Puede proceder a consolidar.", "info");
-    } else if (!spiderFile || !gosomFile) {
-       setConsolidatedData(null); 
+  const handleConsolidate = () => {
+    if (!spiderFile?.parsedData || !gosomFile?.parsedData) {
+      addLog("Error: Se requieren datos parseados de Spider y Gosom para consolidar.", "error");
+      toast({
+        title: "Archivos o Datos Faltantes",
+        description: "Por favor, cargue y valide los archivos CSV de Spider y Gosom primero.",
+        variant: "destructive",
+      });
+      return;
     }
-  }, [spiderFile, gosomFile]); 
 
+    setIsLoadingConsolidate(true);
+    addLog("Iniciando consolidación y deduplicación...", "info");
+
+    try {
+      const result = consolidateAndDeduplicate(
+        spiderFile.parsedData,
+        gosomFile.parsedData,
+        etlParams.deduplication_keys,
+        etlParams.conflict_resolution_priority_source,
+        etlParams.column_mapping
+      );
+      setConsolidatedData(result);
+      addLog(`Consolidación completada. ${result.length} registros procesados.`, "success");
+      toast({
+        title: "Consolidación Exitosa",
+        description: `Los datos han sido consolidados y deduplicados. ${result.length} registros resultantes.`,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Un error desconocido ocurrió durante la consolidación.";
+      addLog(`Error durante la consolidación: ${errorMessage}`, "error");
+      toast({ title: "Error de Consolidación", description: errorMessage, variant: "destructive" });
+      setConsolidatedData(null);
+    } finally {
+      setIsLoadingConsolidate(false);
+    }
+  };
+
+  const handleGenerateChunks = () => {
+    if (!consolidatedData) {
+      addLog("Error: No hay datos consolidados para generar chunks.", "error");
+      toast({ title: "Datos Faltantes", description: "Por favor, consolide los datos primero.", variant: "destructive" });
+      return;
+    }
+    if (selectedColumns.length === 0) {
+      addLog("Error: No hay columnas para incluir en los chunks.", "error");
+      toast({ title: "Columnas Faltantes", description: "Error al determinar columnas para los chunks.", variant: "destructive" });
+      return;
+    }
+
+    setIsLoadingChunks(true);
+    addLog(`Iniciando generación de chunks con tamaño ${chunkSize}...`, "info");
+    
+    try {
+      const chunks = generateChunks(consolidatedData, chunkSize, selectedColumns);
+      setGeneratedChunks(chunks);
+      addLog(`${chunks.length} chunks generados.`, "success");
+      toast({ title: "Chunks Generados", description: `Se han generado ${chunks.length} chunks de datos.` });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Un error desconocido ocurrió durante la generación de chunks.";
+      addLog(`Error al generar chunks: ${errorMessage}`, "error");
+      toast({ title: "Error al Generar Chunks", description: errorMessage, variant: "destructive" });
+      setGeneratedChunks(null);
+    } finally {
+      setIsLoadingChunks(false);
+    }
+  };
 
   return (
     <SidebarProvider defaultOpen>
@@ -132,8 +202,31 @@ export default function DataRefineryPage() {
                   className="w-full"
                   aria-label="Tamaño de Chunk"
                 />
-                <p className="text-xs text-muted-foreground">Min: {etlParams.chunk_size_min}, Max: {etlParams.chunk_size_max}. Valor por defecto: {etlParams.chunk_size_default}.</p>
+                <p className="text-xs text-muted-foreground">Min: {etlParams.chunk_size_min}, Max: {etlParams.chunk_size_max}.</p>
               </div>
+            </SidebarGroupContent>
+          </SidebarGroup>
+          <SidebarGroup className="p-2">
+             <SidebarGroupLabel className="flex items-center">
+                <DatabaseZap className="mr-2"/> Acciones
+            </SidebarGroupLabel>
+            <SidebarGroupContent className="p-2 space-y-2">
+               <Button
+                onClick={handleConsolidate}
+                className="w-full"
+                disabled={!spiderFile || !gosomFile || consolidatedData !== null || isLoadingConsolidate}
+              >
+                <DatabaseZap className="mr-2 h-5 w-5" />
+                {isLoadingConsolidate ? "Procesando..." : (consolidatedData !== null ? "Datos Consolidados" : "Consolidar Datos")}
+              </Button>
+              <Button
+                onClick={handleGenerateChunks}
+                className="w-full"
+                disabled={!consolidatedData || generatedChunks !== null || isLoadingChunks}
+              >
+                <Orbit className="mr-2 h-5 w-5" />
+                {isLoadingChunks ? "Generando..." : (generatedChunks !== null ? "Chunks Generados" : "Generar Chunks")}
+              </Button>
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
@@ -179,7 +272,6 @@ export default function DataRefineryPage() {
                 spiderFile={spiderFile}
                 gosomFile={gosomFile}
                 consolidatedData={consolidatedData}
-                setConsolidatedData={setConsolidatedData}
                 addLog={addLog}
               />
             </TabsContent>
@@ -189,6 +281,8 @@ export default function DataRefineryPage() {
                 chunkSize={chunkSize}
                 onChunkSizeChange={handleChunkSizeChange}
                 addLog={addLog}
+                generatedChunks={generatedChunks}
+                selectedColumns={selectedColumns}
               />
             </TabsContent>
             <TabsContent value="logs">

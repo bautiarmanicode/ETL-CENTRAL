@@ -64,15 +64,11 @@ export function consolidateAndDeduplicate(
       let winner: Record<string, string>;
       let loser: Record<string, string>;
 
+      // Prioritize record from prioritySource
       if (currentRecord.source === prioritySource && existingRecord.source !== prioritySource) {
         winner = currentRecord;
         loser = existingRecord;
       } else if (existingRecord.source === prioritySource && currentRecord.source !== prioritySource) {
-        winner = existingRecord;
-        loser = currentRecord;
-      } else if (currentRecord.source === prioritySource && existingRecord.source === prioritySource) {
-        winner = currentRecord; 
-        loser = existingRecord;
       } else { 
         winner = currentRecord;
         loser = existingRecord;
@@ -108,7 +104,7 @@ export function convertToCSV(data: ConsolidatedData | DataChunk, fields?: string
   if (!data || data.length === 0) {
     return "";
   }
-  return Papa.unparse(data);
+  return Papa.unparse(data, { fields });
 }
 
 /**
@@ -149,9 +145,5 @@ export function generateChunks(
     });
     processedChunks.push(processedChunk);
   }
-
-  // Update convertToCSV to handle selected columns and the new chunking info columns
-  // We will need to modify convertToCSV next to use a columns option from PapaParse
-  // For now, generateChunks returns data with only selected columns + new info
 
   return processedChunks;}

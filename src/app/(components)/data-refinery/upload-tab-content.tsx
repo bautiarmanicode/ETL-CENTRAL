@@ -7,7 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
-import { FileUp, CheckCircle, AlertCircle } from "lucide-react";
+import { FileUp, CheckCircle, AlertCircle, FileText, Columns, Rows } from "lucide-react";
+import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from "@tanstack/react-table";
 import type { SpiderFile, GosomFile } from "./types";
 import { useToast } from "@/hooks/use-toast";
 import { parse, type ParseResult } from 'papaparse';
@@ -126,7 +127,7 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
             description: errorMsg,
             variant: "destructive",
           });
-          if (event.target) event.target.value = ""; 
+          if (event.target) event.target.value = "";
         } else {
           const fileWithData = Object.assign(file, { parsedData });
 
@@ -164,7 +165,7 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
       <p className="text-muted-foreground">
         Suba los archivos CSV crudos desde las fuentes Spider y GOSOM. Los archivos serán validados al cargarse.
       </p>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle className="font-headline flex items-center">
@@ -203,7 +204,7 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
               </p>
             )}
             {!spiderError && spiderFile && spiderFile.parsedData && spiderFile.parsedData.length > 0 && (
-              <div className="mt-4 max-h-40 overflow-auto rounded-md border">
+              <div className="mt-4 max-h-[500px] overflow-y-auto rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -266,7 +267,7 @@ const UploadTabContent: React.FC<UploadTabContentProps> = ({
               </p>
             )}
             {!gosomError && gosomFile && gosomFile.parsedData && gosomFile.parsedData.length > 0 && (
-              <div className="mt-4 max-h-40 overflow-auto rounded-md border">
+              <div className="mt-4 max-h-[500px] overflow-y-auto rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
