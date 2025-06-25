@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   SidebarProvider,
   Sidebar,
@@ -14,6 +13,9 @@ import {
   SidebarGroupLabel,
   SidebarGroupContent,
   SidebarTrigger,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
 } from "@/components/ui/sidebar";
 import { FileUp, DatabaseZap, Orbit, FileText, Settings2, Bot, Download } from "lucide-react";
 
@@ -27,6 +29,8 @@ import { consolidateAndDeduplicate, generateChunks, convertToCSV } from "@/lib/e
 import etlParams from "../../config/etl_params.json";
 import { Separator } from "@/components/ui/separator";
 
+type ActiveView = 'upload' | 'consolidate' | 'chunking' | 'logs';
+
 export default function DataRefineryPage() {
   const [spiderFile, setSpiderFile] = useState<SpiderFile | null>(null);
   const [gosomFile, setGosomFile] = useState<GosomFile | null>(null);
@@ -39,23 +43,34 @@ export default function DataRefineryPage() {
   const [isLoadingChunks, setIsLoadingChunks] = useState(false);
   const [generatedChunks, setGeneratedChunks] = useState<DataChunk[] | null>(null);
   const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
+  const [activeView, setActiveView] = useState<ActiveView>('upload');
   
   const availableColumns = useMemo(() => {
     if (!consolidatedData || consolidatedData.length === 0) return [];
-    // Ensure 'id' and 'source' are not selectable for chunks
     return Object.keys(consolidatedData[0]).filter(col => col !== 'id' && col !== 'source');
   }, [consolidatedData]);
 
   useEffect(() => {
-    // Reset chunks when consolidated data changes
     setGeneratedChunks(null);
     if (consolidatedData && consolidatedData.length > 0) {
-      // Auto-select all available columns by default, except for internal ones
       setSelectedColumns(Object.keys(consolidatedData[0]).filter(col => col !== 'id' && col !== 'source'));
     } else {
       setSelectedColumns([]);
     }
   }, [consolidatedData]);
+  
+  useEffect(() => {
+    if (!spiderFile || !gosomFile) {
+        if (activeView === 'consolidate' || activeView === 'chunking') {
+            setActiveView('upload');
+        }
+    }
+    if (!consolidatedData) {
+        if (activeView === 'chunking') {
+            setActiveView('consolidate');
+        }
+    }
+  }, [spiderFile, gosomFile, consolidatedData, activeView]);
 
   const addLog = (message: string, type: "info" | "error" | "success" = "info") => {
     setLogs((prevLogs) => [...prevLogs, { timestamp: new Date(), message, type }]);
@@ -139,6 +154,7 @@ export default function DataRefineryPage() {
         title: "Consolidación Exitosa",
         description: `Los datos han sido consolidados y deduplicados. ${result.length} registros resultantes.`,
       });
+      setActiveView('consolidate');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Un error desconocido ocurrió durante la consolidación.";
       addLog(`Error durante la consolidación: ${errorMessage}`, "error");
@@ -169,6 +185,7 @@ export default function DataRefineryPage() {
       setGeneratedChunks(chunks);
       addLog(`${chunks.length} chunks generados.`, "success");
       toast({ title: "Chunks Generados", description: `Se han generado ${chunks.length} chunks de datos.` });
+      setActiveView('chunking');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Un error desconocido ocurrió durante la generación de chunks.";
       addLog(`Error al generar chunks: ${errorMessage}`, "error");
@@ -191,7 +208,6 @@ export default function DataRefineryPage() {
     }
 
     try {
-      // Use all available columns for the master CSV download
       const allCols = Object.keys(consolidatedData[0]);
       const csvString = convertToCSV(consolidatedData, allCols);
       const blob = new Blob([`\uFEFF${csvString}`], { type: 'text/csv;charset=utf-8;' });
@@ -219,6 +235,13 @@ export default function DataRefineryPage() {
     }
   };
 
+  const viewTitles: Record<ActiveView, string> = {
+    upload: "Cargar CSVs",
+    consolidate: "Consolidar y Deduplicar",
+    chunking: "Generar Chunks",
+    logs: "Registros de Ejecución"
+  };
+
   return (
     <SidebarProvider defaultOpen>
       <Sidebar variant="sidebar" collapsible="icon" className="border-r">
@@ -231,6 +254,35 @@ export default function DataRefineryPage() {
           </div>
         </SidebarHeader>
         <SidebarContent className="p-0">
+          <SidebarGroup className="p-2">
+            <SidebarGroupLabel className="flex items-center">
+                Navegación
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={() => setActiveView('upload')} isActive={activeView === 'upload'} tooltip="Cargar Archivos CSV">
+                    <FileUp /> Cargar CSVs
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={() => setActiveView('consolidate')} isActive={activeView === 'consolidate'} disabled={!spiderFile || !gosomFile} tooltip="Consolidar Datos">
+                    <DatabaseZap /> Consolidar
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={() => setActiveView('chunking')} isActive={activeView === 'chunking'} disabled={!consolidatedData} tooltip="Generar Chunks">
+                    <Orbit /> Chunkear
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={() => setActiveView('logs')} isActive={activeView === 'logs'} tooltip="Ver Registros">
+                    <FileText /> Logs
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
           <SidebarGroup className="p-2">
             <SidebarGroupLabel className="flex items-center">
                 <Settings2 className="mr-2"/> Configuración
@@ -292,29 +344,13 @@ export default function DataRefineryPage() {
         <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 px-4 backdrop-blur md:px-6">
             <div className="flex items-center">
                  <SidebarTrigger className="md:hidden mr-2" />
-                 <h2 className="font-headline text-xl font-semibold">ETL Central</h2>
+                 <h2 className="font-headline text-xl font-semibold">{viewTitles[activeView]}</h2>
             </div>
             <p className="text-sm text-muted-foreground hidden md:block">Consolide, deduplique y divida sus datos CSV con facilidad.</p>
         </header>
         
         <main className="flex-1 p-4 md:p-6">
-          <Tabs defaultValue="upload" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 mb-6">
-              <TabsTrigger value="upload" className="text-xs sm:text-sm">
-                <FileUp className="mr-1 sm:mr-2 h-4 w-4" /> Cargar CSVs
-              </TabsTrigger>
-              <TabsTrigger value="consolidate" className="text-xs sm:text-sm" disabled={!spiderFile || !gosomFile}>
-                <DatabaseZap className="mr-1 sm:mr-2 h-4 w-4" /> Consolidar
-              </TabsTrigger>
-              <TabsTrigger value="chunking" className="text-xs sm:text-sm" disabled={!consolidatedData}>
-                <Orbit className="mr-1 sm:mr-2 h-4 w-4" /> Chunkear
-              </TabsTrigger>
-              <TabsTrigger value="logs" className="text-xs sm:text-sm">
-                <FileText className="mr-1 sm:mr-2 h-4 w-4" /> Logs
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="upload">
+            {activeView === 'upload' && (
               <UploadTabContent
                 onSpiderFileChange={handleSpiderFileChange}
                 onGosomFileChange={handleGosomFileChange}
@@ -322,16 +358,16 @@ export default function DataRefineryPage() {
                 gosomFile={gosomFile}
                 addLog={addLog}
               />
-            </TabsContent>
-            <TabsContent value="consolidate">
+            )}
+            {activeView === 'consolidate' && (
               <ConsolidateTabContent
                 spiderFile={spiderFile}
                 gosomFile={gosomFile}
                 consolidatedData={consolidatedData}
                 addLog={addLog}
               />
-            </TabsContent>
-            <TabsContent value="chunking">
+            )}
+            {activeView === 'chunking' && (
               <ChunkingTabContent
                 consolidatedData={consolidatedData}
                 chunkSize={chunkSize}
@@ -341,11 +377,8 @@ export default function DataRefineryPage() {
                 selectedColumns={selectedColumns}
                 onSelectedColumnsChange={setSelectedColumns}
               />
-            </TabsContent>
-            <TabsContent value="logs">
-              <LogsTabContent logs={logs} />
-            </TabsContent>
-          </Tabs>
+            )}
+            {activeView === 'logs' && <LogsTabContent logs={logs} />}
         </main>
       </SidebarInset>
     </SidebarProvider>
