@@ -1,3 +1,4 @@
+
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -219,6 +220,7 @@ export default function DataRefineryPage() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
       addLog("CSV Madre consolidado descargado.", "success");
       toast({
         title: "Descarga Iniciada",

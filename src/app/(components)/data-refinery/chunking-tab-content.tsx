@@ -57,13 +57,17 @@ const ChunkingTabContent: React.FC<ChunkingTabContentProps> = ({
         return;
       }
       
-      const encodedUri = "data:text/csv;charset=utf-8," + "\uFEFF" + encodeURI(csvString);
+      const blob = new Blob([`\uFEFF${csvString}`], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
       link.setAttribute("download", `chunk_${chunkIndex + 1}.csv`);
-      document.body.appendChild(link); 
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
       addLog(`Chunk ${chunkIndex + 1} descargado.`, "info");
     } catch (error) {
        const errorMessage = error instanceof Error ? error.message : "Un error desconocido ocurrió durante la descarga del chunk.";
@@ -217,4 +221,3 @@ const ChunkingTabContent: React.FC<ChunkingTabContentProps> = ({
 };
 
 export default ChunkingTabContent;
-
